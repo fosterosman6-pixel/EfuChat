@@ -19,6 +19,7 @@ import { usePush } from '../lib/push';
 import { SessionProvider, useSession } from '../lib/session';
 import { colors } from '../lib/theme';
 import { DialogHost } from '../components/Dialog';
+import { onCallNotificationPress, openedFromCall } from '../lib/callRinger';
 
 export default function RootLayout() {
   const [loaded] = useFonts({ OpenSans_400Regular, OpenSans_600SemiBold, OpenSans_700Bold, OpenSans_800ExtraBold });
@@ -63,6 +64,17 @@ function IncomingCalls() {
   const shown = useRef(new Set<string>());
   const onCall = useRef(false);
   onCall.current = path.startsWith('/call/');
+
+  // Opened (or tapped) from the full-screen call notification.
+  useEffect(() => {
+    if (!profile?.uid) return;
+    const go = (callId: string, answer: boolean) => {
+      shown.current.add(callId);
+      router.push({ pathname: '/call/[id]', params: { id: callId, ...(answer ? { answer: '1' } : {}) } });
+    };
+    openedFromCall().then((o) => o && go(o.callId, o.answer));
+    return onCallNotificationPress((callId, action) => go(callId, action === 'answer'));
+  }, [profile?.uid]);
 
   useEffect(() => {
     if (!profile?.uid) return;

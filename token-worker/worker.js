@@ -226,15 +226,18 @@ async function notify(env, origin, uid, kind, id) {
     const call = await fsGet(env, token, `calls/${id}`);
     if (!call || call.from !== uid) return { status: 403, body: { error: 'not your call' } };
     if (call.status !== 'ringing' || (call.createdAt && Date.now() - call.createdAt > 60_000)) return { status: 200, body: { sent: 0 } };
+    // Data only: the app's background task shows a full-screen call that keeps ringing.
     const sent = await sendPush(env, token, call.to, {
-      notification: { title: call.fromName || 'EfuChat', body: call.kind === 'video' ? 'Incoming video call' : 'Incoming voice call' },
-      data: { kind: 'call', callId: id },
-      android: {
-        priority: 'HIGH',
-        ttl: '45s',
-        notification: { channel_id: 'calls', tag: `call-${id}`, sound: 'efuchat_ring', notification_priority: 'PRIORITY_MAX', visibility: 'PUBLIC', icon: 'notification_icon', color: '#0A2253' },
-      },
+      data: { kind: 'call', callId: id, fromName: String(call.fromName || 'EfuChat'), callKind: call.kind === 'video' ? 'video' : 'voice' },
+      android: { priority: 'HIGH', ttl: '45s' },
     });
+    return { status: 200, body: { sent } };
+  }
+  if (kind === 'call_end') {
+    const call = await fsGet(env, token, `calls/${id}`);
+    if (!call || call.from !== uid) return { status: 403, body: { error: 'not your call' } };
+    if (call.status === 'ringing') return { status: 200, body: { sent: 0 } };
+    const sent = await sendPush(env, token, call.to, { data: { kind: 'call_end', callId: id }, android: { priority: 'HIGH', ttl: '60s' } });
     return { status: 200, body: { sent } };
   }
   return { status: 400, body: { error: 'bad kind' } };

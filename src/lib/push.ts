@@ -85,7 +85,7 @@ export async function unregisterPush(uid: string) {
 }
 
 /** Fire-and-forget: tell the Worker to notify the others in a chat, or ring the person called. */
-export async function notify(kind: 'message' | 'call', id: string) {
+export async function notify(kind: 'message' | 'call' | 'call_end', id: string) {
   if (!NOTIFY_URL) return;
   const user = getAuth().currentUser;
   if (!user) return;

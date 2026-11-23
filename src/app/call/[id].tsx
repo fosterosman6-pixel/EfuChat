@@ -8,6 +8,8 @@ import { Icon, T } from '../../components/ui';
 import { RtcSurfaceView } from 'react-native-agora';
 import { AGORA_APP_ID, cameraPermission, flipCamera, joinVoice, micPermission, setCamera, setMuted, setSpeaker } from '../../lib/agora';
 import { logCallInChat, RING_MS, setCallStatus, subscribeCall, type Call } from '../../lib/calls';
+import { stopRinging } from '../../lib/callRinger';
+import { notify } from '../../lib/push';
 import type { IconName } from '../../lib/icons';
 import { useSession } from '../../lib/session';
 import { colors, fonts, initialsOf } from '../../lib/theme';
@@ -15,7 +17,7 @@ import { colors, fonts, initialsOf } from '../../lib/theme';
 const ENDED: Record<string, string> = { declined: 'Call declined', missed: 'No answer', cancelled: 'Call cancelled', ended: 'Call ended' };
 
 export default function CallScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, answer } = useLocalSearchParams<{ id: string; answer?: string }>();
   const { user, profile } = useSession();
   const insets = useSafeAreaInsets();
   const [call, setCall] = useState<Call | null>(null);
@@ -34,6 +36,28 @@ export default function CallScreen() {
   const isVideo = call?.kind === 'video' && !voiceOnly;
 
   useEffect(() => (id ? subscribeCall(id, setCall) : undefined), [id]);
+
+  // The full-screen notification stops once this screen is open; "Answer" there answers here.
+  const answered = useRef(false);
+  useEffect(() => {
+    if (id) stopRinging(id);
+  }, [id]);
+  useEffect(() => {
+    if (answer === '1' && !answered.current && call && call.to === me && call.status === 'ringing') {
+      answered.current = true;
+      setCallStatus(call.id, 'accepted').catch(() => {});
+    }
+  }, [answer, call, me]);
+
+  // Caller: when the call stops before it was answered, stop the other phone ringing.
+  const endSent = useRef(false);
+  useEffect(() => {
+    if (!call || call.from !== me || endSent.current) return;
+    if (call.status === 'cancelled' || call.status === 'missed' || call.status === 'declined' || call.status === 'accepted') {
+      endSent.current = true;
+      notify('call_end', call.id);
+    }
+  }, [call?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ringing pulse around the avatar.
   useEffect(() => {
