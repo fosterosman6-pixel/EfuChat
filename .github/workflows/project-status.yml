@@ -1,0 +1,23 @@
+# Run by hand (Actions tab) to see whether the EfuChat Firebase project has billing (Blaze) turned on.
+name: Project status
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/943586081894/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@project-72f5d6ed-81b6-4920-86b.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Billing
+        run: |
+          gcloud billing projects describe project-72f5d6ed-81b6-4920-86b --format="table(billingEnabled,billingAccountName)" || echo "Could not read billing info"
+      - name: Services turned on
+        run: gcloud services list --enabled --project project-72f5d6ed-81b6-4920-86b --format="value(config.name)" | sort
