@@ -31,7 +31,8 @@
         "android.permission.VIBRATE",
         "android.permission.READ_CONTACTS",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.USE_FULL_SCREEN_INTENT"
+        "android.permission.USE_FULL_SCREEN_INTENT",
+        "android.permission.CAMERA"
       ]
     },
     "web": {
@@ -56,7 +57,7 @@
         {
           "photosPermission": "EfuChat needs your photos so you can share them in chats and stories.",
           "cameraPermission": "EfuChat uses the camera so you can take photos for chats and your profile.",
-          "microphonePermission": false
+          "microphonePermission": "EfuChat uses the microphone for voice notes and calls."
         }
       ],
       [
@@ -74,6 +75,12 @@
           "sounds": [
             "./assets/sounds/efuchat_ring.wav"
           ]
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "EfuChat uses the microphone for voice notes and calls."
         }
       ]
     ],
