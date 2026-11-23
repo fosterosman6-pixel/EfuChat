@@ -53,7 +53,7 @@ export default function CreateMenu() {
           })}
         </View>
         <Card style={{ marginHorizontal: 0, borderWidth: 1, borderColor: colors.line }}>
-          <Row left={<Tile name="group" bg={colors.surface100} fg={colors.navy} />} title="New group" subtitle="Coming soon" />
+          <Row left={<Tile name="group" bg={colors.surface100} fg={colors.navy} />} title="New group" subtitle="Chat with several people" onPress={() => router.replace('/new-group')} />
           <Row left={<Tile name="wallet" bg={colors.lime100} fg={colors.lime600} />} title="Send money" subtitle="Coming soon" />
           <Row left={<Tile name="truck" bg={colors.lime100} fg={colors.lime600} />} title="Book a matola" subtitle="Coming soon" last />
         </Card>
