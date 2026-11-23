@@ -1,6 +1,8 @@
 import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { notify } from './push';
+import { openDirectChat, postMessage } from './chats';
+import type { Chat } from './types';
 import type { Person } from './chats';
 
 export type CallStatus = 'ringing' | 'accepted' | 'declined' | 'missed' | 'cancelled' | 'ended';
@@ -81,4 +83,21 @@ export function subscribeMyCalls(uid: string, cb: (calls: Call[]) => void) {
     u1();
     u2();
   };
+}
+
+export const callLabel = (kind: 'voice' | 'video', outcome: string, mine: boolean) =>
+  outcome === 'answered' ? (kind === 'video' ? 'Video call' : 'Voice call')
+  : mine ? (kind === 'video' ? 'Video call' : 'Voice call')
+  : kind === 'video' ? 'Missed video call' : 'Missed voice call';
+
+/** The caller adds a line to the chat when a call finishes (answered, missed, declined or cancelled). */
+export async function logCallInChat(call: Call, me: Person) {
+  const outcome = call.answeredAt ? 'answered' : call.status === 'declined' ? 'declined' : call.status === 'cancelled' ? 'cancelled' : 'missed';
+  const dur = call.answeredAt && call.endedAt ? Math.max(0, Math.round((call.endedAt.toDate().getTime() - call.answeredAt.toDate().getTime()) / 1000)) : undefined;
+  const chatId = await openDirectChat(me, { uid: call.to, name: call.toName });
+  const snap = await getDoc(doc(db, 'chats', chatId));
+  if (!snap.exists()) return;
+  const chat = { id: snap.id, ...snap.data() } as Chat;
+  const preview = outcome === 'answered' ? `📞 ${call.kind === 'video' ? 'Video' : 'Voice'} call` : `📞 Missed ${call.kind} call`;
+  await postMessage(chat, me.uid, { type: 'call', text: '', call: { callId: call.id, kind: call.kind, outcome, ...(dur !== undefined ? { dur } : {}) } }, preview);
 }

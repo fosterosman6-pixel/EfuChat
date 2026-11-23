@@ -51,7 +51,9 @@ export type Message = {
   id: string;
   from: string;
   text: string;
-  type: 'text' | 'image' | 'voice' | 'document' | 'location' | 'contact';
+  type: 'text' | 'image' | 'voice' | 'document' | 'location' | 'contact' | 'call';
+  /** call lines: written by the caller when a call finishes */
+  call?: { callId: string; kind: 'voice' | 'video'; outcome: 'answered' | 'missed' | 'declined' | 'cancelled'; dur?: number };
   createdAt: Ts | null;
   readBy?: string[];
   replyTo?: ReplyRef;

@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { signOut } from '@react-native-firebase/auth';
 import { unregisterPush } from '../lib/push';
 import { router } from 'expo-router';
 import { Alert, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WallpaperPicker, WALLPAPERS } from './Wallpaper';
 import { Avatar, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile, Toggle } from './ui';
 import { auth } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
@@ -15,7 +17,8 @@ const chev = <Icon name="chev" color={colors.muted} size={18} />;
 export function MeScreen({ tab = false }: { tab?: boolean }) {
   const { profile, user } = useSession();
   const { lang, setLang } = useLang();
-  const { dataSaver, setDataSaver } = usePrefs();
+  const { dataSaver, setDataSaver, wallpaperFor } = usePrefs();
+  const [wp, setWp] = useState(false);
   const insets = useSafeAreaInsets();
 
   function confirmSignOut() {
@@ -74,6 +77,7 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
             right={chev}
             onPress={() => setLang(lang === 'ny' ? 'en' : 'ny')}
           />
+          <Row left={<Tile name="palette" bg={colors.surface100} fg={colors.navy} />} title="Chat wallpaper" subtitle={WALLPAPERS.find((w) => w.name === wallpaperFor())?.label} right={chev} onPress={() => setWp(true)} />
           <Row left={<Tile name="lock" bg={colors.surface100} fg={colors.navy} />} title="Privacy and security" subtitle="Last seen, read ticks, calls, app lock" onPress={() => router.push('/privacy')} />
           <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="Help" subtitle="Questions and support" onPress={() => router.push('/help')} last />
         </Card>
@@ -83,6 +87,7 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
           <Row left={<Tile name="logout" bg={colors.dangerTint} fg={colors.danger} />} title="Sign out" danger onPress={confirmSignOut} last />
         </Card>
       </ScrollView>
+      <WallpaperPicker visible={wp} onClose={() => setWp(false)} />
     </View>
   );
 }

@@ -164,13 +164,18 @@ async function fsGet(env, token, path) {
 async function sendPush(env, token, to, msg) {
   const doc = await fsGet(env, token, `pushTokens/${to}`);
   const tokens = Array.isArray(doc?.tokens) ? doc.tokens.slice(-5) : [];
+  console.log('push', to, 'tokens', tokens.length);
   await Promise.all(
     tokens.map((t) =>
       fetch(`https://fcm.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/messages:send`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
         body: JSON.stringify({ message: { ...msg, token: t } }),
-      }).catch(() => null),
+      })
+        .then(async (r) => {
+          if (!r.ok) console.error('fcm', r.status, (await r.text()).slice(0, 300));
+        })
+        .catch((e) => console.error('fcm fetch', String(e))),
     ),
   );
   return tokens.length;

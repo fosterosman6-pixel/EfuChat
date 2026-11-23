@@ -32,7 +32,9 @@ import {
   subscribeMessages,
   whoIsTyping,
 } from '../../lib/chats';
-import { startCall } from '../../lib/calls';
+import { callLabel, startCall } from '../../lib/calls';
+import { usePrefs } from '../../lib/prefs';
+import { WallpaperFill, WallpaperPicker } from '../../components/Wallpaper';
 import { db } from '../../lib/firebase';
 import { sendVoice } from '../../lib/media';
 import { MAX_VOICE_SECONDS, useVoiceRecorder } from '../../lib/useVoiceRecorder';
@@ -48,7 +50,8 @@ import type { Chat, Message, ReplyRef, UserProfile } from '../../lib/types';
 const QUICK = ['Zikomo', 'Ndafika!', 'Ok'];
 const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const TYPING_EVERY_MS = 4000;
-const PREVIEW = (m: Message) => (m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.text);
+const PREVIEW = (m: Message) =>
+  m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.type === 'call' && m.call ? `📞 ${m.call.kind === 'video' ? 'Video' : 'Voice'} call` : m.text;
 
 export default function Conversation() {
   const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
@@ -60,6 +63,9 @@ export default function Conversation() {
   const [text, setText] = useState(draft ?? '');
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [selected, setSelected] = useState<Message | null>(null);
+  const [menu, setMenu] = useState(false);
+  const [wpOpen, setWpOpen] = useState(false);
+  const { wallpaperFor } = usePrefs();
   const [other, setOther] = useState<UserProfile | null>(null);
   const [, setTick] = useState(0);
   const lastTyping = useRef(0);
@@ -234,6 +240,7 @@ export default function Conversation() {
           </Pressable>
           <IconButton name="video" label={isGroup ? 'Group video call (coming soon)' : 'Video call'} size={20} onPress={() => call('video')} />
           <IconButton name="phone" label={isGroup ? 'Group call (coming soon)' : 'Voice call'} size={20} onPress={() => call('voice')} />
+          <IconButton name="more" label="More options" size={20} onPress={() => setMenu(true)} />
         </View>
       </Header>
 
@@ -254,6 +261,8 @@ export default function Conversation() {
         </Pressable>
       )}
 
+      <View style={{ flex: 1 }}>
+      <WallpaperFill name={wallpaperFor(chat?.id ?? id)} />
       <FlatList
         inverted
         data={msgs}
@@ -263,6 +272,8 @@ export default function Conversation() {
         renderItem={({ item, index }) => {
           const prev = msgs[index + 1];
           const showName = isGroup && item.from !== me && prev?.from !== item.from;
+          if (item.type === 'call' && item.call && !item.deleted)
+            return <CallLine msg={item} mine={item.from === me} onCallBack={() => call(item.call!.kind)} onLongPress={() => setSelected(item)} />;
           return (
             <Bubble
               chatId={chat?.id ?? ''}
@@ -279,6 +290,7 @@ export default function Conversation() {
           );
         }}
       />
+      </View>
 
       {canSend ? (
         <>
@@ -401,6 +413,22 @@ export default function Conversation() {
           }
         />
       )}
+      <Modal visible={menu} transparent animationType="fade" onRequestClose={() => setMenu(false)}>
+        <Pressable style={{ flex: 1 }} onPress={() => setMenu(false)} accessibilityLabel="Close menu">
+          <View style={{ position: 'absolute', top: insets.top + 56, right: 10, backgroundColor: '#FFFFFF', borderRadius: 14, paddingVertical: 6, minWidth: 190, elevation: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12 }}>
+            {[
+              ...(isGroup ? [{ icon: 'group' as IconName, label: 'Group info', go: () => router.push({ pathname: '/group/[id]', params: { id } }) }] : []),
+              { icon: 'palette' as IconName, label: 'Wallpaper', go: () => setWpOpen(true) },
+            ].map((o) => (
+              <Pressable key={o.label} accessibilityRole="menuitem" onPress={() => { setMenu(false); o.go(); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 }}>
+                <Icon name={o.icon} color={colors.navy} size={20} />
+                <T style={{ fontFamily: fonts.semibold }}>{o.label}</T>
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
+      <WallpaperPicker visible={wpOpen} chatId={chat?.id ?? id} onClose={() => setWpOpen(false)} />
     </KeyboardAvoidingView>
   );
 }
@@ -643,3 +671,54 @@ function Actions({
 const dot = { position: 'absolute', right: -2, bottom: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#3BD16F', borderWidth: 2, borderColor: colors.navy } as const;
 const micBtn = { width: 48, height: 48, borderRadius: 16, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' } as const;
 const quick = { height: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: colors.line, backgroundColor: '#FFFFFF', justifyContent: 'center' } as const;
+
+function fmtDur(sec: number) {
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** A call shown in the chat: answered, missed (red + Call back for the person who missed it) or no answer. */
+function CallLine({ msg, mine, onCallBack, onLongPress }: { msg: Message; mine: boolean; onCallBack: () => void; onLongPress: () => void }) {
+  const c = msg.call!;
+  const time = msg.createdAt ? msg.createdAt.toDate().toTimeString().slice(0, 5) : '…';
+  const answered = c.outcome === 'answered';
+  const missedForMe = !answered && !mine;
+  const title = callLabel(c.kind, c.outcome, mine);
+  const detail = answered ? `${time} · ${fmtDur(c.dur ?? 0)}` : mine ? `${time} · ${c.outcome === 'declined' ? 'Declined' : c.outcome === 'cancelled' ? 'Cancelled' : 'No answer'}` : time;
+  const tint = missedForMe ? colors.danger : colors.navy;
+  return (
+    <Pressable
+      onLongPress={onLongPress}
+      delayLongPress={300}
+      accessibilityLabel={`${title}, ${detail}`}
+      style={{
+        alignSelf: mine ? 'flex-end' : 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        minWidth: 210,
+        maxWidth: '80%',
+        padding: 10,
+        borderRadius: 16,
+        borderTopRightRadius: mine ? 4 : 16,
+        borderTopLeftRadius: mine ? 16 : 4,
+        backgroundColor: mine ? colors.lime100 : '#FFFFFF',
+        borderWidth: 1,
+        borderColor: missedForMe ? '#F5C2BD' : mine ? '#D5EBA0' : colors.line,
+      }}
+    >
+      <View style={{ width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: missedForMe ? colors.dangerTint : mine ? '#FFFFFF' : colors.surface100 }}>
+        <Icon name={c.kind === 'video' ? 'video' : mine ? 'callout' : 'callin'} color={tint} size={19} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <T style={{ fontFamily: fonts.bold, color: missedForMe ? colors.danger : colors.navy }}>{title}</T>
+        <T style={{ fontSize: 12, color: colors.muted }}>{detail}</T>
+      </View>
+      {missedForMe && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Call back" onPress={onCallBack} style={{ paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12, backgroundColor: colors.navy }}>
+          <T style={{ color: '#FFFFFF', fontSize: 12, fontFamily: fonts.bold }}>Call back</T>
+        </Pressable>
+      )}
+    </Pressable>
+  );
+}

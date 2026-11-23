@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, T } from '../../components/ui';
 import { RtcSurfaceView } from 'react-native-agora';
 import { AGORA_APP_ID, cameraPermission, flipCamera, joinVoice, micPermission, setCamera, setMuted, setSpeaker } from '../../lib/agora';
-import { RING_MS, setCallStatus, subscribeCall, type Call } from '../../lib/calls';
+import { logCallInChat, RING_MS, setCallStatus, subscribeCall, type Call } from '../../lib/calls';
 import type { IconName } from '../../lib/icons';
 import { useSession } from '../../lib/session';
 import { colors, fonts, initialsOf } from '../../lib/theme';
@@ -14,7 +14,7 @@ const ENDED: Record<string, string> = { declined: 'Call declined', missed: 'No a
 
 export default function CallScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const insets = useSafeAreaInsets();
   const [call, setCall] = useState<Call | null>(null);
   const [connected, setConnected] = useState(false);
@@ -110,6 +110,15 @@ export default function CallScreen() {
     const timer = setInterval(() => setSecs(Math.floor((Date.now() - start) / 1000)), 1000);
     return () => clearInterval(timer);
   }, [connected]);
+
+  // The caller leaves a line in the chat once the call is over.
+  const logged = useRef(false);
+  useEffect(() => {
+    if (!call || !outgoing || logged.current || !status || status === 'ringing' || status === 'accepted') return;
+    if (status === 'ended' && !call.endedAt) return; // wait for the server time so the length is right
+    logged.current = true;
+    if (profile) logCallInChat(call, profile).catch(() => {});
+  }, [call, outgoing, status, profile]);
 
   // Close the screen shortly after the call finishes.
   useEffect(() => {

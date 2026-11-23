@@ -236,6 +236,11 @@ test('calls: ring, answer, hang up; strangers and fakes refused', async () => {
   await assertSucceeds(updateDoc(doc(as(A), 'calls', 'c1'), { status: 'ended', endedAt: serverTimestamp() }));
   await assertSucceeds(setDoc(doc(as(A), 'calls', 'c2'), call));
   await assertSucceeds(updateDoc(doc(as(A), 'calls', 'c2'), { status: 'missed', endedAt: serverTimestamp() }));
+  // the caller leaves a line in the chat; the callee cannot fake one for that call
+  const line = (from, callId) => ({ from, type: 'call', text: '', call: { callId, kind: 'voice', outcome: 'missed' }, createdAt: serverTimestamp() });
+  await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), line(A, 'c2')));
+  await assertFails(addDoc(collection(as(B), 'chats', 'alice_bob', 'messages'), line(B, 'c2')));
+  await assertFails(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), line(A, 'nope')));
 });
 
 test('privacy: own settings only; calls respect "nobody" and "people I chat with"', async () => {
