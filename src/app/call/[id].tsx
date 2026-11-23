@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Linking, Pressable, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { Icon, T } from '../../components/ui';
 import { RtcSurfaceView } from 'react-native-agora';
 import { AGORA_APP_ID, cameraPermission, flipCamera, joinVoice, micPermission, setCamera, setMuted, setSpeaker } from '../../lib/agora';
@@ -40,6 +41,26 @@ export default function CallScreen() {
     loop.start();
     return () => loop.stop();
   }, [pulse]);
+
+  // Sounds: the person being called hears the ringtone; the caller hears the ringing tone.
+  const ringtone = useAudioPlayer(require('../../../assets/sounds/efuchat_ring.wav'));
+  const ringback = useAudioPlayer(require('../../../assets/sounds/ringback.wav'));
+  useEffect(() => {
+    if (status !== 'ringing' || !call) return;
+    const player = outgoing ? ringback : ringtone;
+    setAudioModeAsync({ playsInSilentMode: false, shouldPlayInBackground: false, interruptionMode: 'doNotMix' }).catch(() => {});
+    try {
+      player.loop = true;
+      player.volume = outgoing ? 0.6 : 1;
+      player.seekTo(0);
+      player.play();
+    } catch {}
+    return () => {
+      try {
+        player.pause();
+      } catch {}
+    };
+  }, [status, outgoing, call?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Incoming: vibrate while ringing. Outgoing: give up after RING_MS.
   useEffect(() => {
