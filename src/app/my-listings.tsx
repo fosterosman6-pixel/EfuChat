@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, View } from 'react-native';
+import { useRefresh } from '../lib/useRefresh';
 import { Button, Header, T } from '../components/ui';
 import { mwk, subscribeMyListings, type Listing } from '../lib/market';
 import { useSession } from '../lib/session';
@@ -16,7 +17,8 @@ const STATUS: Record<Listing['status'], { label: string; bg: string; fg: string 
 export default function MyListings() {
   const { profile } = useSession();
   const [items, setItems] = useState<Listing[] | null>(null);
-  useEffect(() => (profile ? subscribeMyListings(profile.uid, setItems) : undefined), [profile]);
+  const { key, refreshing, onRefresh } = useRefresh();
+  useEffect(() => (profile ? subscribeMyListings(profile.uid, setItems) : undefined), [profile, key]);
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface100 }}>
@@ -24,6 +26,7 @@ export default function MyListings() {
       <FlatList
         data={items ?? []}
         keyExtractor={(l) => l.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.navy} colors={[colors.navy]} />}
         contentContainerStyle={{ padding: 12, gap: 10 }}
         ListEmptyComponent={
           <View style={{ alignItems: 'center', gap: 12, padding: 24 }}>

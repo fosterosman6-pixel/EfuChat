@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { useRefresh } from '../../lib/useRefresh';
 import { Header, Icon, IconButton, T } from '../../components/ui';
 import { CATEGORIES, mwk, subscribeListings, type Category, type Listing } from '../../lib/market';
 import { useSession } from '../../lib/session';
@@ -16,10 +17,11 @@ export default function Market() {
   const [items, setItems] = useState<Listing[] | null>(null);
   const town = profile?.town?.trim();
 
+  const { key, refreshing, onRefresh } = useRefresh();
   useEffect(() => {
     setItems(null);
     return subscribeListings(cat, setItems);
-  }, [cat]);
+  }, [cat, key]);
 
   const shown = useMemo(() => {
     const n = q.trim().toLowerCase();
@@ -73,6 +75,7 @@ export default function Market() {
         data={shown}
         keyExtractor={(l) => l.id}
         numColumns={2}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.navy} colors={[colors.navy]} />}
         columnWrapperStyle={{ gap: 10, paddingHorizontal: 12 }}
         contentContainerStyle={{ gap: 10, paddingBottom: 120 }}
         ListHeaderComponent={

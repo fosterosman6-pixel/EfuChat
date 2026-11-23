@@ -15,10 +15,10 @@ export default function TabsLayout() {
       screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: colors.surface100 } }}
     >
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="reels" />
+      <Tabs.Screen name="chats" />
       <Tabs.Screen name="plus" />
       <Tabs.Screen name="market" />
-      <Tabs.Screen name="chats" />
+      <Tabs.Screen name="me" />
     </Tabs>
   );
 }

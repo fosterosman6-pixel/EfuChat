@@ -4,14 +4,13 @@ import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { Wordmark } from '../../components/Logo';
 import { PostCard } from '../../components/PostCard';
 import { StoriesRow } from '../../components/StoriesRow';
-import { Avatar, Button, Header, IconButton, T } from '../../components/ui';
+import { Button, Header, IconButton, T } from '../../components/ui';
 import { useBlocked, useFollowing } from '../../lib/follows';
 import { Feed, subscribeFeed } from '../../lib/posts';
 import { useSession } from '../../lib/session';
 import { colors, fonts } from '../../lib/theme';
 import type { Post } from '../../lib/types';
 
-const FEEDS: Feed[] = ['For you', 'Following', 'Near me'];
 
 export default function Home() {
   const { profile } = useSession();
@@ -44,9 +43,6 @@ export default function Home() {
           </View>
           <IconButton name="search" label="Search and explore" size={20} onPress={() => router.push('/explore')} />
           <IconButton name="bell" label="Notifications" onPress={() => router.push('/notifications')} />
-          <Pressable accessibilityRole="button" accessibilityLabel="Me: your profile and settings" onPress={() => router.push('/me')} style={{ padding: 5 }}>
-            <Avatar name={profile?.name ?? 'Me'} size={34} rounded={11} />
-          </Pressable>
         </View>
         <StoriesRow />
       </Header>
@@ -57,8 +53,15 @@ export default function Home() {
         contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 16, gap: 10 }}
         refreshControl={<RefreshControl refreshing={posts === null} onRefresh={() => setRefreshKey((k) => k + 1)} tintColor={colors.navy} />}
         ListHeaderComponent={
-          <View accessibilityRole="tablist" style={{ flexDirection: 'row', justifyContent: 'center', gap: 18, paddingTop: 10, paddingBottom: 2 }}>
-            {FEEDS.map((f) => {
+          <View accessibilityRole="tablist" style={{ flexDirection: 'row', justifyContent: 'center', gap: 10, paddingTop: 10, paddingBottom: 2 }}>
+            {(['For you', 'Reels', 'Following', 'Near me'] as const).map((f) => {
+              if (f === 'Reels')
+                return (
+                  <Pressable key={f} accessibilityRole="button" accessibilityLabel="Reels" onPress={() => router.push('/reels')} style={{ alignItems: 'center', gap: 6, padding: 6 }}>
+                    <T style={{ fontSize: 16, fontFamily: fonts.semibold, color: colors.muted }}>Reels</T>
+                    <View style={{ width: 28, height: 3 }} />
+                  </Pressable>
+                );
               const on = f === feed;
               return (
                 <Pressable key={f} accessibilityRole="tab" accessibilityState={{ selected: on }} onPress={() => setFeed(f)} style={{ alignItems: 'center', gap: 6, padding: 6 }}>

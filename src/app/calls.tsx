@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useRefresh } from '../lib/useRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Card, Chip, Header, Icon, Row, SectionLabel, T } from '../components/ui';
 import { startCall, subscribeMyCalls, type Call } from '../lib/calls';
@@ -14,7 +15,8 @@ export default function Calls() {
   const [missedOnly, setMissedOnly] = useState(false);
   const me = profile?.uid ?? '';
 
-  useEffect(() => (me ? subscribeMyCalls(me, setCalls) : undefined), [me]);
+  const { key, refreshing, onRefresh } = useRefresh();
+  useEffect(() => (me ? subscribeMyCalls(me, setCalls) : undefined), [me, key]);
 
   const isMissed = (c: Call) => c.to === me && (c.status === 'missed' || c.status === 'cancelled');
   const groups = useMemo(() => {
@@ -75,7 +77,7 @@ export default function Calls() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.surface100 }}>
       <Header title="Calls" onBack={() => router.back()} />
-      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.navy} colors={[colors.navy]} />}>
         <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 14 }}>
           <Chip label="All" active={!missedOnly} onPress={() => setMissedOnly(false)} />
           <Chip label="Missed" active={missedOnly} onPress={() => setMissedOnly(true)} />

@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { useRefresh } from '../../lib/useRefresh';
 import { Wordmark } from '../../components/Logo';
 import { StoriesRow } from '../../components/StoriesRow';
 import { Avatar, Chip, Header, Icon, IconButton, T } from '../../components/ui';
@@ -20,7 +21,8 @@ export default function Chats() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
 
-  useEffect(() => (user ? subscribeChats(user.uid, setChats) : undefined), [user]);
+  const { key, refreshing, onRefresh } = useRefresh();
+  useEffect(() => (user ? subscribeChats(user.uid, setChats) : undefined), [user, key]);
 
   const shown = useMemo(() => {
     if (!user) return [];
@@ -72,6 +74,7 @@ export default function Chats() {
       </ScrollView>
 
       <FlatList
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.navy} colors={[colors.navy]} />}
         data={shown}
         keyExtractor={(c) => c.id}
         contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingBottom: 16 }}

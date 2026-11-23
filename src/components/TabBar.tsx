@@ -5,20 +5,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { IconName } from '../lib/icons';
 import { useLang, StringKey } from '../lib/i18n';
 import { colors, fonts } from '../lib/theme';
-import { Icon } from './ui';
+import { Avatar, Icon } from './ui';
+import { useEffect, useState } from 'react';
+import { subscribeChats } from '../lib/chats';
+import { useSession } from '../lib/session';
 
-const TABS: Record<string, { icon: IconName; label: StringKey }> = {
+const TABS: Record<string, { icon: IconName; label: StringKey | 'Me' }> = {
   home: { icon: 'home', label: 'home' },
-  reels: { icon: 'reels', label: 'reels' },
-  market: { icon: 'bag', label: 'market' },
   chats: { icon: 'chat', label: 'chats' },
+  market: { icon: 'bag', label: 'market' },
+  me: { icon: 'person', label: 'Me' },
 };
 
-/** Floating navy bar: Home · Reels · + · Market · Chats */
+/** Floating navy bar: Home · Chats · + · Market · Me (Jakob's law: home far left, profile far right, create in the middle). */
 export function TabBar({ state, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const { t } = useLang();
-  const dark = state.routes[state.index]?.name === 'reels';
+  const { user, profile } = useSession();
+  const [unread, setUnread] = useState(0);
+  useEffect(() => (user ? subscribeChats(user.uid, (cs) => setUnread(cs.reduce((n, c) => n + ((c.unread?.[user.uid] ?? 0) > 0 ? 1 : 0), 0))) : undefined), [user]);
+  const dark = false;
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 12), backgroundColor: dark ? colors.navy : colors.surface100 }]}>
@@ -47,13 +53,27 @@ export function TabBar({ state, navigateToTab }: BottomTabBarProps) {
               key={route.key}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
+              accessibilityLabel={route.name === 'chats' && unread ? `Chats, ${unread} unread` : undefined}
               onPress={() => {
                 if (!focused) navigateToTab(route.key);
               }}
               style={styles.slot}
             >
-              <Icon name={tab.icon} color={col} />
-              <Text style={{ color: col, fontSize: 11, fontFamily: focused ? fonts.bold : fonts.semibold }}>{t(tab.label)}</Text>
+              <View>
+                {route.name === 'me' ? (
+                  <View style={{ borderRadius: 10, borderWidth: 2, borderColor: col }}>
+                    <Avatar name={profile?.name ?? 'Me'} uri={profile?.photoURL} size={24} rounded={8} />
+                  </View>
+                ) : (
+                  <Icon name={tab.icon} color={col} />
+                )}
+                {route.name === 'chats' && unread > 0 && (
+                  <View style={{ position: 'absolute', top: -5, right: -11, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.navy, fontSize: 11, fontFamily: fonts.extrabold }}>{unread > 99 ? '99+' : unread}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={{ color: col, fontSize: 11, fontFamily: focused ? fonts.bold : fonts.semibold }}>{tab.label === 'Me' ? 'Me' : t(tab.label)}</Text>
             </Pressable>
           );
         })}
