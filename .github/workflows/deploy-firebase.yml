@@ -1,9 +1,7 @@
 # Deploys the EfuChat database to Firebase.
 #
-# One-time setup in GitHub > Settings > Secrets and variables > Actions:
-#   Variable  FIREBASE_PROJECT_ID    your Firebase project id, e.g. efuchat-mw
-#   Secret    FIREBASE_SERVICE_ACCOUNT  the JSON key of a service account with the
-#             "Firebase Admin" role (Firebase console > Project settings > Service accounts)
+# Signs in to Google with Workload Identity Federation: no key files.
+# One-time setup: run scripts/setup-github-deploy.sh in Google Cloud Shell.
 # Optional, once the project is on the Blaze plan:
 #   Variable  DEPLOY_FUNCTIONS = true   also deploys the server functions
 #   Secrets   PAYMENTS_WEBHOOK_SECRET, EFULOGISTIX_WEBHOOK_SECRET (any long random text)
@@ -23,6 +21,10 @@ on:
       - .github/workflows/deploy-firebase.yml
 
 concurrency: deploy-firebase
+
+permissions:
+  contents: read
+  id-token: write # lets GitHub prove to Google which repo is deploying
 
 jobs:
   check:
@@ -52,7 +54,8 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/943586081894/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@project-72f5d6ed-81b6-4920-86b.iam.gserviceaccount.com
       - name: Deploy Firestore
         run: npx --yes firebase-tools@15 deploy --only firestore --project "${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}" --non-interactive
       - name: Write prices, fees and app rules
@@ -71,7 +74,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/943586081894/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@project-72f5d6ed-81b6-4920-86b.iam.gserviceaccount.com
       - run: npx --yes firebase-tools@15 deploy --only storage --project "${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}" --non-interactive
 
   functions:
@@ -85,7 +89,8 @@ jobs:
         with: { node-version: 22 }
       - uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/943586081894/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@project-72f5d6ed-81b6-4920-86b.iam.gserviceaccount.com
       - name: Set function secrets
         env:
           P: ${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}

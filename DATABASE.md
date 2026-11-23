@@ -73,6 +73,10 @@ Roles are Firebase Auth custom claims, set by an owner with `setStaffRole`:
 - **EfuLogistix:** it needs to read new `deliveries`, and to call `efulogistixWebhook` as drivers move. Matola fares are fixed at MWK 3,500 until EfuLogistix can quote them.
 - **Subscription renewals:** plans end when they run out. Automatic renewal needs the mobile money APIs.
 
+## Deploy from GitHub
+
+The `Deploy database` GitHub Action deploys on every push to `main` that changes the database files. It can also be run by hand from the Actions tab. It signs in with Workload Identity, so there's no key file. One-time setup: run `scripts/setup-github-deploy.sh` in Google Cloud Shell.
+
 ## Set up and check
 
 ```bash
