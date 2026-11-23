@@ -86,6 +86,25 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == me();
     }
 
+    // ---------- calls (signalling only; audio goes through Agora) ----------
+    match /calls/{callId} {
+      allow get: if signedIn() && me() in [resource.data.from, resource.data.to];
+      allow list: if signedIn() && (resource.data.to == me() || resource.data.from == me());
+      allow create: if active() && incoming().from == me() && incoming().to != me()
+        && userDoc(incoming().to).data.status == 'active' && !blockedBy(incoming().to)
+        && incoming().keys().hasOnly(['from', 'to', 'fromName', 'toName', 'kind', 'status', 'createdAt'])
+        && incoming().status == 'ringing' && incoming().kind in ['voice', 'video']
+        && incoming().createdAt == request.time && str(incoming().fromName, 60) && str(incoming().toName, 60);
+      // The person called answers or declines; the caller cancels or gives up; either one hangs up.
+      allow update: if signedIn() && me() in [resource.data.from, resource.data.to]
+        && onlyChanges(['status', 'answeredAt', 'endedAt'])
+        && (
+          (resource.data.status == 'ringing' && me() == resource.data.to && incoming().status in ['accepted', 'declined'])
+          || (resource.data.status == 'ringing' && me() == resource.data.from && incoming().status in ['cancelled', 'missed'])
+          || (resource.data.status == 'accepted' && incoming().status == 'ended')
+        );
+    }
+
     // ---------- chats ----------
     match /chats/{chatId} {
       function chat() { return get(/databases/$(database)/documents/chats/$(chatId)).data; }

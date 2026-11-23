@@ -31,6 +31,7 @@ import {
   subscribeMessages,
   whoIsTyping,
 } from '../../lib/chats';
+import { startCall } from '../../lib/calls';
 import { db } from '../../lib/firebase';
 import { useLang } from '../../lib/i18n';
 import type { IconName } from '../../lib/icons';
@@ -46,7 +47,7 @@ const SOON = 'Photos, voice notes and documents are coming soon.';
 
 export default function Conversation() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const { t } = useLang();
   const insets = useSafeAreaInsets();
   const [chat, setChat] = useState<Chat | null>(null);
@@ -112,6 +113,18 @@ export default function Conversation() {
     }
   }
 
+  async function call() {
+    if (isGroup || !chat) return Alert.alert('Coming soon', 'Group calls are coming in a later update.');
+    const otherId = chat.members.find((m) => m !== me);
+    if (!otherId || !profile) return;
+    try {
+      const callId = await startCall(profile, { uid: otherId, name: chat.names[otherId] ?? 'EfuChat user' });
+      router.push({ pathname: '/call/[id]', params: { id: callId } });
+    } catch {
+      Alert.alert('Could not call', 'Check your connection and try again.');
+    }
+  }
+
   function startReply(m: Message) {
     if (m.deleted) return;
     setReplyTo({ id: m.id, from: m.from, name: m.from === me ? 'You' : (chat?.names[m.from] ?? 'EfuChat user'), text: m.text });
@@ -162,8 +175,8 @@ export default function Conversation() {
               </T>
             </View>
           </Pressable>
-          <IconButton name="video" label="Video call (coming soon)" size={20} onPress={() => Alert.alert('Coming soon', 'Video calls are coming soon.')} />
-          <IconButton name="phone" label="Voice call (coming soon)" size={20} onPress={() => Alert.alert('Coming soon', 'Voice calls are coming soon.')} />
+          <IconButton name="video" label="Video call (coming soon)" size={20} onPress={() => Alert.alert('Coming soon', 'Video calls are coming in the next update.')} />
+          <IconButton name="phone" label={isGroup ? 'Group call (coming soon)' : 'Voice call'} size={20} onPress={call} />
         </View>
       </Header>
 

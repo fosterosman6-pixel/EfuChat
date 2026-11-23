@@ -9,7 +9,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.efulogistix.efuchat",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "EfuChat uses the microphone for voice calls and voice notes."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +23,14 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.efulogistix.efuchat",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.VIBRATE",
+        "android.permission.READ_CONTACTS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -55,6 +65,9 @@
     "scheme": "efuchat",
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "agoraAppId": ""
     }
   }
 }

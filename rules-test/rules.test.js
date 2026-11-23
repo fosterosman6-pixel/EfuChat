@@ -222,3 +222,18 @@ test('groups: creator is the only admin; admins manage, members cannot', async (
   await assertSucceeds(updateDoc(doc(as(EVE), 'chats', 'g1'), { members: [A, B] }));
   await assertSucceeds(updateDoc(doc(as(A), 'chats', 'g1'), { members: [A], admins: [A] }));
 });
+
+test('calls: ring, answer, hang up; strangers and fakes refused', async () => {
+  const call = { from: A, to: B, fromName: 'Alice', toName: 'Bob', kind: 'voice', status: 'ringing', createdAt: serverTimestamp() };
+  await assertFails(setDoc(doc(as(A), 'calls', 'c0'), { ...call, from: B }));
+  await assertFails(setDoc(doc(as(A), 'calls', 'c0'), { ...call, status: 'accepted' }));
+  await assertFails(setDoc(doc(as(A), 'calls', 'c0'), { ...call, to: EVE }));
+  await assertSucceeds(setDoc(doc(as(A), 'calls', 'c1'), call));
+  await assertFails(getDoc(doc(as(EVE), 'calls', 'c1')));
+  await assertFails(updateDoc(doc(as(A), 'calls', 'c1'), { status: 'accepted' }));
+  await assertSucceeds(updateDoc(doc(as(B), 'calls', 'c1'), { status: 'accepted', answeredAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(as(B), 'calls', 'c1'), { status: 'missed' }));
+  await assertSucceeds(updateDoc(doc(as(A), 'calls', 'c1'), { status: 'ended', endedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(doc(as(A), 'calls', 'c2'), call));
+  await assertSucceeds(updateDoc(doc(as(A), 'calls', 'c2'), { status: 'missed', endedAt: serverTimestamp() }));
+});

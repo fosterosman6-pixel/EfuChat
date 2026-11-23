@@ -54,7 +54,7 @@ export default function Me() {
           <Row left={<Tile name="person" bg={colors.lime100} fg={colors.navy} />} title="Edit profile" subtitle="Coming soon" />
           <Row left={<Tile name="wallet" bg={colors.lime100} fg={colors.navy} />} title="Wallet" subtitle="Coming soon" />
           <Row left={<Tile name="store" bg={colors.lime100} fg={colors.navy} />} title="My shop and orders" subtitle="Coming soon" />
-          <Row left={<Tile name="phone" bg={colors.lime100} fg={colors.navy} />} title="Calls" subtitle="Coming soon" last />
+          <Row left={<Tile name="phone" bg={colors.lime100} fg={colors.navy} />} title="Calls" subtitle="Voice calls and missed calls" onPress={() => router.push('/calls')} last />
         </Card>
 
         <SectionLabel>APP</SectionLabel>
