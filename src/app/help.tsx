@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
+import { getAuth } from '@react-native-firebase/auth';
 import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, Header, Icon, Row, SectionLabel, T, Tile } from '../components/ui';
@@ -30,6 +31,9 @@ export default function Help() {
     const n = q.trim().toLowerCase();
     return FAQ.map((f, i) => ({ ...f, i })).filter((f) => !n || f.q.toLowerCase().includes(n) || f.a.toLowerCase().includes(n));
   }, [q]);
+
+  // The support account answers people instead of contacting itself.
+  const isSupport = !!SUPPORT_PHONE && getAuth().currentUser?.phoneNumber === SUPPORT_PHONE;
 
   async function support() {
     if (!profile) return;
@@ -74,8 +78,21 @@ export default function Help() {
 
       <SectionLabel>CONTACT US</SectionLabel>
       <Card>
-        <Row left={<Tile name="chat" bg={colors.lime} fg={colors.navy} />} title="Chat with EfuChat support" subtitle="Usually replies within a day" right={<Icon name="chev" color={colors.muted} size={18} />} onPress={support} />
-        <Row left={<Tile name="flag" bg={colors.dangerTint} fg={colors.danger} />} title="Report a problem" subtitle="Tell support what happened" right={<Icon name="chev" color={colors.muted} size={18} />} onPress={support} last />
+        {isSupport ? (
+          <Row
+            left={<Tile name="chat" bg={colors.lime} fg={colors.navy} />}
+            title="Support inbox"
+            subtitle="You are EfuChat support. People's questions arrive in Chats"
+            right={<Icon name="chev" color={colors.muted} size={18} />}
+            onPress={() => router.navigate('/(tabs)/chats')}
+            last
+          />
+        ) : (
+          <>
+            <Row left={<Tile name="chat" bg={colors.lime} fg={colors.navy} />} title="Chat with EfuChat support" subtitle="Usually replies within a day" right={<Icon name="chev" color={colors.muted} size={18} />} onPress={support} />
+            <Row left={<Tile name="flag" bg={colors.dangerTint} fg={colors.danger} />} title="Report a problem" subtitle="Tell support what happened" right={<Icon name="chev" color={colors.muted} size={18} />} onPress={support} last />
+          </>
+        )}
       </Card>
 
       <SectionLabel>ABOUT</SectionLabel>
