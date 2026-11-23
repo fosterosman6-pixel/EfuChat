@@ -11,7 +11,8 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LangProvider } from '../lib/i18n';
 import { PrefsProvider } from '../lib/prefs';
-import { SessionProvider } from '../lib/session';
+import { usePresence } from '../lib/presence';
+import { SessionProvider, useSession } from '../lib/session';
 import { colors } from '../lib/theme';
 
 export default function RootLayout() {
@@ -23,6 +24,7 @@ export default function RootLayout() {
       <LangProvider>
         <PrefsProvider>
           <SessionProvider>
+            <Presence />
             <StatusBar style="light" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface100 } }}>
               <Stack.Screen name="create" options={{ presentation: 'transparentModal', animation: 'fade' }} />
@@ -34,4 +36,10 @@ export default function RootLayout() {
       </LangProvider>
     </SafeAreaProvider>
   );
+}
+
+function Presence() {
+  const { profile } = useSession();
+  usePresence(profile?.uid);
+  return null;
 }

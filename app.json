@@ -44,6 +44,12 @@
         {
           "photosPermission": "EfuChat needs your photos so you can share them in chats and stories."
         }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "EfuChat uses your contacts to show which friends are on EfuChat."
+        }
       ]
     ],
     "scheme": "efuchat",

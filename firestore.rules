@@ -37,10 +37,12 @@ service cloud.firestore {
         && incoming().walletLinked == false && incoming().status == 'active'
         && incoming().counts == { 'posts': 0, 'followers': 0, 'following': 0, 'sales': 0 };
       allow update: if isMe(uid)
-        && onlyChanges(['name', 'about', 'photoURL', 'town', 'lang', 'accountType', 'handle', 'lastActiveAt'])
+        && onlyChanges(['name', 'about', 'photoURL', 'town', 'lang', 'accountType', 'handle'])
         && str(incoming().name, 60) && str(incoming().about, 140)
         && incoming().accountType in ['personal', 'creator', 'business'];
       allow update: if isMod() && onlyChanges(['status', 'verified']);
+      // Presence heartbeat (online / last seen); only the server time is accepted.
+      allow update: if isMe(uid) && onlyChanges(['lastActiveAt']) && incoming().lastActiveAt == request.time;
 
       match /private/{doc} {
         allow read: if isMe(uid) || isStaff();
@@ -86,7 +88,8 @@ service cloud.firestore {
 
     // ---------- chats ----------
     match /chats/{chatId} {
-      function members() { return get(/databases/$(database)/documents/chats/$(chatId)).data.members; }
+      function chat() { return get(/databases/$(database)/documents/chats/$(chatId)).data; }
+      function members() { return chat().members; }
       function isGroupAdmin() { return me() in resource.data.get('admins', []); }
 
       // A direct chat that does not exist yet may be looked up by either person in it (its id is both uids).
@@ -95,9 +98,14 @@ service cloud.firestore {
       allow create: if active() && me() in incoming().members
         && incoming().members.size() >= 2 && incoming().members.size() <= 256
         && incoming().type in ['direct', 'group']
-        && (incoming().type == 'group' || incoming().members.size() == 2);
-      // Members update last message and unread counts; only group admins change who is in it.
+        && (incoming().type == 'group' || incoming().members.size() == 2)
+        // the creator of a group is its first and only admin; direct chats have none
+        && incoming().get('admins', []) == (incoming().type == 'group' ? [me()] : [])
+        && (incoming().type == 'direct' || (str(incoming().groupName, 50) && incoming().groupName.size() >= 2));
+      // Members update last message, unread counts, typing and the pinned message.
+      // Only group admins change who is in it, who is admin, the name or who may send.
       allow update: if signedIn() && me() in resource.data.members
+        && (isGroupAdmin() || !changed().hasAny(['admins', 'adminsOnly', 'groupName', 'type', 'createdBy']))
         && (incoming().members == resource.data.members || isGroupAdmin()
             // anyone may leave a group
             || (resource.data.type == 'group' && incoming().members.toSet() == resource.data.members.toSet().difference([me()].toSet())));
@@ -105,12 +113,17 @@ service cloud.firestore {
       match /messages/{msgId} {
         allow read: if signedIn() && me() in members();
         allow create: if active() && me() in members()
+          && (chat().get('adminsOnly', false) != true || me() in chat().get('admins', []))
           && incoming().from == me()
           && incoming().type in ['text', 'image', 'voice', 'document', 'location', 'contact']
           && (!('text' in incoming()) || str(incoming().text, 4000));
         // Senders may delete for everyone (the text is cleared, the bubble stays).
         allow update: if signedIn() && resource.data.from == me() && onlyChanges(['deleted', 'text', 'media'])
           && incoming().deleted == true;
+        // Any member may set or clear their own reaction, and nothing else.
+        allow update: if signedIn() && me() in members() && onlyChanges(['reactions'])
+          && incoming().reactions.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([me()])
+          && (!(me() in incoming().reactions) || str(incoming().reactions[me()], 16));
       }
     }
 

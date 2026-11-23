@@ -190,3 +190,35 @@ test('chats: either person can look up a direct chat that does not exist yet', a
   await assertSucceeds(getDoc(doc(as(A), 'chats', [A, EVE].sort().join('_'))));
   await assertFails(getDoc(doc(as(B), 'chats', [A, EVE].sort().join('_'))));
 });
+
+test('presence: only my own lastActiveAt, only server time', async () => {
+  await assertSucceeds(updateDoc(doc(as(A), 'users', A), { lastActiveAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(as(A), 'users', A), { lastActiveAt: Timestamp.fromMillis(0) }));
+  await assertFails(updateDoc(doc(as(A), 'users', B), { lastActiveAt: serverTimestamp() }));
+});
+
+test('chats: typing, pin and reactions', async () => {
+  await assertSucceeds(updateDoc(doc(as(A), 'chats', 'alice_bob'), { [`typing.${A}`]: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(as(A), 'chats', 'alice_bob'), { pinned: { id: 'm1', text: 'hi', from: A } }));
+  const m = await addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), { from: A, type: 'text', text: 'Moni', createdAt: serverTimestamp() });
+  await assertSucceeds(updateDoc(doc(as(B), 'chats', 'alice_bob', 'messages', m.id), { [`reactions.${B}`]: '👍' }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'alice_bob', 'messages', m.id), { [`reactions.${A}`]: '😂' }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'alice_bob', 'messages', m.id), { [`reactions.${B}`]: '❤️', text: 'edited' }));
+  await assertFails(updateDoc(doc(as(EVE), 'chats', 'alice_bob', 'messages', m.id), { [`reactions.${EVE}`]: '👍' }));
+  await assertSucceeds(addDoc(collection(as(B), 'chats', 'alice_bob', 'messages'), { from: B, type: 'text', text: 'ok', replyTo: { id: m.id, from: A, name: 'Alice', text: 'Moni' }, createdAt: serverTimestamp() }));
+});
+
+test('groups: creator is the only admin; admins manage, members cannot', async () => {
+  const base = { type: 'group', members: [A, B, EVE], names: {}, unread: {}, groupName: 'Trip', updatedAt: serverTimestamp() };
+  await assertFails(setDoc(doc(as(A), 'chats', 'g0'), { ...base, admins: [A, B] }));
+  await assertFails(setDoc(doc(as(A), 'chats', 'g0'), { ...base, admins: [B] }));
+  await assertSucceeds(setDoc(doc(as(A), 'chats', 'g1'), { ...base, admins: [A], adminsOnly: false }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g1'), { groupName: 'Mine now' }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g1'), { admins: [A, B] }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g1'), { members: [A, B] }));
+  await assertSucceeds(updateDoc(doc(as(A), 'chats', 'g1'), { groupName: 'Friday trip', adminsOnly: true }));
+  await assertSucceeds(addDoc(collection(as(A), 'chats', 'g1', 'messages'), { from: A, type: 'text', text: 'Admins only now', createdAt: serverTimestamp() }));
+  await assertFails(addDoc(collection(as(B), 'chats', 'g1', 'messages'), { from: B, type: 'text', text: 'can I?', createdAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(as(EVE), 'chats', 'g1'), { members: [A, B] }));
+  await assertSucceeds(updateDoc(doc(as(A), 'chats', 'g1'), { members: [A], admins: [A] }));
+});

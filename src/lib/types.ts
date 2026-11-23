@@ -17,6 +17,8 @@ export type UserProfile = {
   walletLinked?: boolean;
   status?: 'active' | 'under_review' | 'suspended' | 'banned';
   createdAt?: Ts;
+  /** written every minute while the app is open; drives online / last seen */
+  lastActiveAt?: Ts;
 };
 
 export type Chat = {
@@ -26,18 +28,33 @@ export type Chat = {
   /** display names keyed by uid, so the list renders without extra reads */
   names: Record<string, string>;
   groupName?: string;
+  /** groups: who can add or remove people and change settings */
+  admins?: string[];
+  /** groups: only admins may send */
+  adminsOnly?: boolean;
+  createdBy?: string;
   lastMessage?: { text: string; from: string; at: Ts | null };
   unread?: Record<string, number>;
+  /** when each member last typed; "typing…" shows for a few seconds after */
+  typing?: Record<string, Ts | null>;
+  pinned?: { id: string; text: string; from: string } | null;
   updatedAt?: Ts | null;
 };
+
+export type ReplyRef = { id: string; from: string; name: string; text: string };
 
 export type Message = {
   id: string;
   from: string;
   text: string;
-  type: 'text';
+  type: 'text' | 'image' | 'voice' | 'document' | 'location' | 'contact';
   createdAt: Ts | null;
   readBy?: string[];
+  replyTo?: ReplyRef;
+  /** emoji keyed by the uid who reacted */
+  reactions?: Record<string, string>;
+  deleted?: boolean;
+  forwarded?: boolean;
 };
 
 export type Story = {

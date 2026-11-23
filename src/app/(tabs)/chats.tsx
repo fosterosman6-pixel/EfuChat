@@ -4,7 +4,7 @@ import { FlatList, Pressable, ScrollView, View } from 'react-native';
 import { Wordmark } from '../../components/Logo';
 import { StoriesRow } from '../../components/StoriesRow';
 import { Avatar, Chip, Header, Icon, IconButton, T } from '../../components/ui';
-import { chatTitle, shortTime, subscribeChats } from '../../lib/chats';
+import { chatTitle, shortTime, subscribeChats, whoIsTyping } from '../../lib/chats';
 import { useLang } from '../../lib/i18n';
 import { usePrefs } from '../../lib/prefs';
 import { useSession } from '../../lib/session';
@@ -86,7 +86,11 @@ function ChatCard({ chat, me }: { chat: Chat; me: string }) {
   const title = chatTitle(chat, me);
   const unread = chat.unread?.[me] ?? 0;
   const last = chat.lastMessage;
-  const preview = last ? (last.from === me ? `You: ${last.text}` : last.text) : 'Say hello';
+  const typing = whoIsTyping(chat, me);
+  const sender = last && chat.type === 'group' && last.from !== me ? `${(chat.names[last.from] ?? '').split(' ')[0]}: ` : '';
+  const preview = typing.length
+    ? chat.type === 'group' ? `${typing[0].split(' ')[0]} is typing…` : 'typing…'
+    : last ? (last.from === me ? `You: ${last.text}` : sender + last.text) : 'Say hello';
 
   return (
     <Pressable
@@ -113,7 +117,7 @@ function ChatCard({ chat, me }: { chat: Chat; me: string }) {
           </T>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <T style={{ flex: 1, fontSize: 13, color: colors.muted }} numberOfLines={1}>
+          <T style={{ flex: 1, fontSize: 13, color: typing.length ? colors.lime600 : colors.muted, fontFamily: typing.length ? fonts.semibold : fonts.regular }} numberOfLines={1}>
             {preview}
           </T>
           {unread > 0 && (
