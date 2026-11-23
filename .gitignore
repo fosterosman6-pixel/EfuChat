@@ -39,3 +39,14 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase config files (keep private)
+google-services.json
+GoogleService-Info.plist
+
+# Server build output and test deps
+functions/lib/
+functions/node_modules/
+rules-test/node_modules/
+firestore-debug.log
+*-debug.log

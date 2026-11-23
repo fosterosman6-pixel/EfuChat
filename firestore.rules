@@ -1,0 +1,271 @@
+rules_version = '2';
+
+// EfuChat Firestore security rules.
+// Schema: functions/src/schema.ts. Fields marked "server" there are written
+// only by Cloud Functions (Admin SDK), which these rules do not limit.
+// Staff roles come from a custom claim set by the setStaffRole function:
+// request.auth.token.role in ['owner', 'moderator', 'finance', 'support'].
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function isMe(uid) { return signedIn() && me() == uid; }
+    function role() { return signedIn() ? request.auth.token.get('role', '') : ''; }
+    function isStaff() { return role() in ['owner', 'moderator', 'finance', 'support']; }
+    function isMod() { return role() in ['owner', 'moderator']; }
+    function isFinance() { return role() in ['owner', 'finance']; }
+    function userDoc(uid) { return get(/databases/$(database)/documents/users/$(uid)); }
+    function active() { return signedIn() && userDoc(me()).data.status == 'active'; }
+    function blockedBy(uid) { return exists(/databases/$(database)/documents/users/$(uid)/blocks/$(me())); }
+    function incoming() { return request.resource.data; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function onlyChanges(keys) { return changed().hasOnly(keys); }
+    function str(v, max) { return v is string && v.size() <= max; }
+    function now() { return request.time; }
+
+    // ---------- people ----------
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow create: if isMe(uid)
+        && incoming().keys().hasOnly(['name', 'about', 'photoURL', 'town', 'lang', 'accountType', 'createdAt',
+             'verified', 'plan', 'plus', 'walletLinked', 'status', 'counts'])
+        && str(incoming().name, 60) && incoming().name.size() > 1
+        && incoming().verified == false && incoming().plan == 'free' && incoming().plus == false
+        && incoming().walletLinked == false && incoming().status == 'active'
+        && incoming().counts == { 'posts': 0, 'followers': 0, 'following': 0, 'sales': 0 };
+      allow update: if isMe(uid)
+        && onlyChanges(['name', 'about', 'photoURL', 'town', 'lang', 'accountType', 'handle', 'lastActiveAt'])
+        && str(incoming().name, 60) && str(incoming().about, 140)
+        && incoming().accountType in ['personal', 'creator', 'business'];
+      allow update: if isMod() && onlyChanges(['status', 'verified']);
+
+      match /private/{doc} {
+        allow read: if isMe(uid) || isStaff();
+        allow create, update: if isMe(uid) && doc == 'account'
+          && incoming().phone == request.auth.token.phone_number
+          && (!('wallet' in incoming()) || (resource != null && incoming().wallet == resource.data.wallet));
+      }
+      match /followers/{followerUid} {
+        allow read: if signedIn();
+        allow create, delete: if isMe(followerUid) && followerUid != uid && !blockedBy(uid);
+      }
+      match /following/{targetUid} {
+        allow read: if signedIn();
+        allow create, delete: if isMe(uid) && targetUid != uid;
+      }
+      match /notifications/{id} {
+        allow read: if isMe(uid);
+        allow update: if isMe(uid) && onlyChanges(['read']);
+        allow delete: if isMe(uid);
+      }
+      match /blocks/{blockedUid} {
+        allow read, create, delete: if isMe(uid);
+      }
+      match /saved/{itemId} {
+        allow read, create, delete: if isMe(uid);
+      }
+    }
+
+    // Phone number -> uid, single lookups only.
+    match /phoneIndex/{phone} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && phone == request.auth.token.phone_number && incoming().uid == me();
+    }
+
+    // Unique @handles.
+    match /handles/{handle} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() && incoming().uid == me() && handle.matches('^[a-z0-9._]{3,24}$');
+      allow delete: if signedIn() && resource.data.uid == me();
+    }
+
+    // ---------- chats ----------
+    match /chats/{chatId} {
+      function members() { return get(/databases/$(database)/documents/chats/$(chatId)).data.members; }
+      function isGroupAdmin() { return me() in resource.data.get('admins', []); }
+
+      allow read: if signedIn() && me() in resource.data.members;
+      allow create: if active() && me() in incoming().members
+        && incoming().members.size() >= 2 && incoming().members.size() <= 256
+        && incoming().type in ['direct', 'group']
+        && (incoming().type == 'group' || incoming().members.size() == 2);
+      // Members update last message and unread counts; only group admins change who is in it.
+      allow update: if signedIn() && me() in resource.data.members
+        && (incoming().members == resource.data.members || isGroupAdmin()
+            // anyone may leave a group
+            || (resource.data.type == 'group' && incoming().members.toSet() == resource.data.members.toSet().difference([me()].toSet())));
+
+      match /messages/{msgId} {
+        allow read: if signedIn() && me() in members();
+        allow create: if active() && me() in members()
+          && incoming().from == me()
+          && incoming().type in ['text', 'image', 'voice', 'document', 'location', 'contact']
+          && (!('text' in incoming()) || str(incoming().text, 4000));
+        // Senders may delete for everyone (the text is cleared, the bubble stays).
+        allow update: if signedIn() && resource.data.from == me() && onlyChanges(['deleted', 'text', 'media'])
+          && incoming().deleted == true;
+      }
+    }
+
+    // ---------- stories ----------
+    match /stories/{id} {
+      allow read: if signedIn() && !blockedBy(resource.data.uid);
+      allow create: if active() && incoming().uid == me()
+        && incoming().kind in ['text', 'image', 'video']
+        && (!('text' in incoming()) || str(incoming().text, 280))
+        && incoming().viewers.size() == 0
+        && incoming().expiresAt <= now() + duration.value(25, 'h');
+      allow update: if signedIn() && onlyChanges(['viewers'])
+        && incoming().viewers.toSet().difference(resource.data.viewers.toSet()) == [me()].toSet();
+      allow delete: if isMe(resource.data.uid) || isMod();
+    }
+
+    // ---------- feed, reels, polls ----------
+    match /posts/{postId} {
+      allow read: if signedIn() && (resource.data.status == 'live' || isMe(resource.data.uid) || isStaff())
+        && !blockedBy(resource.data.uid);
+      allow create: if active() && incoming().uid == me()
+        && incoming().kind in ['post', 'reel', 'poll']
+        && str(incoming().text, 2000)
+        && incoming().media.size() <= 10
+        && incoming().status == 'live' && incoming().featured == false
+        && !('sponsored' in incoming())
+        && incoming().counts == { 'likes': 0, 'comments': 0, 'reposts': 0, 'views': 0, 'tips': 0 };
+      allow update: if isMe(resource.data.uid) && onlyChanges(['text', 'visibility']) && str(incoming().text, 2000);
+      allow update: if isMod() && onlyChanges(['status', 'featured']);
+      allow delete: if isMe(resource.data.uid);
+
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if active() && incoming().uid == me() && str(incoming().text, 1000)
+          && incoming().likes == 0 && incoming().status == 'live'
+          && !blockedBy(get(/databases/$(database)/documents/posts/$(postId)).data.uid);
+        allow delete: if isMe(resource.data.uid) || isMe(get(/databases/$(database)/documents/posts/$(postId)).data.uid);
+        allow update: if isMod() && onlyChanges(['status']);
+      }
+      match /likes/{uid} {
+        allow read: if signedIn();
+        allow create, delete: if isMe(uid);
+      }
+      match /votes/{uid} {
+        allow read: if isMe(uid);
+        allow create: if isMe(uid) && incoming().option is int
+          && get(/databases/$(database)/documents/posts/$(postId)).data.poll.endsAt > now();
+      }
+    }
+
+    match /hashtags/{tag} {
+      allow read: if signedIn();
+      allow update: if isMod() && onlyChanges(['state']);
+    }
+
+    // ---------- channels ----------
+    match /channels/{channelId} {
+      function channel() { return get(/databases/$(database)/documents/channels/$(channelId)).data; }
+      function channelAdmin() { return signedIn() && me() in channel().admins; }
+
+      allow read: if signedIn();
+      allow create: if active() && incoming().ownerUid == me() && me() in incoming().admins
+        && incoming().verified == false && incoming().followers == 0 && str(incoming().name, 60);
+      allow update: if signedIn() && me() in resource.data.admins && onlyChanges(['name', 'about', 'photoURL', 'admins', 'category']);
+      allow update: if isMod() && onlyChanges(['verified', 'verification']);
+
+      match /posts/{id} {
+        allow read: if signedIn();
+        allow create: if channelAdmin() && str(incoming().text, 4000);
+        allow delete: if channelAdmin() || isMod();
+      }
+      match /followers/{uid} {
+        allow read: if isMe(uid) || channelAdmin();
+        allow create, delete: if isMe(uid);
+      }
+    }
+
+    // ---------- market ----------
+    match /listings/{id} {
+      allow read: if signedIn() && (resource.data.status in ['live', 'sold'] || isMe(resource.data.sellerUid) || isStaff());
+      allow create: if active() && incoming().sellerUid == me()
+        && str(incoming().title, 80) && str(incoming().description, 2000)
+        && incoming().priceMWK is int && incoming().priceMWK > 0 && incoming().priceMWK <= 50000000
+        && incoming().photos.size() >= 1 && incoming().photos.size() <= 6
+        && incoming().status == 'live' && incoming().views == 0 && !('boostedUntil' in incoming());
+      allow update: if isMe(resource.data.sellerUid) && resource.data.status in ['live', 'paused']
+        && onlyChanges(['title', 'description', 'priceMWK', 'photos', 'condition', 'town', 'matolaDelivery', 'walletPayment', 'status'])
+        && incoming().status in ['live', 'paused'];
+      allow update: if isMod() && onlyChanges(['status']);
+      allow delete: if isMe(resource.data.sellerUid) && resource.data.status != 'sold';
+    }
+
+    // Orders and disputes are created and moved by Cloud Functions.
+    match /orders/{id} {
+      allow read: if signedIn() && (me() in resource.data.members || isStaff());
+      allow write: if false;
+    }
+    match /disputes/{id} {
+      allow read: if signedIn() && (me() in resource.data.members || isStaff());
+      allow write: if false;
+    }
+    match /reviews/{id} {
+      allow read: if signedIn();
+      allow write: if false; // via the reviewOrder function, one per completed order
+    }
+
+    // ---------- money: server only ----------
+    match /wallets/{uid} {
+      allow read: if isMe(uid) || isFinance();
+      allow write: if false;
+    }
+    match /ledger/{id} {
+      allow read: if signedIn() && (me() in resource.data.members || isFinance());
+      allow write: if false;
+    }
+    match /payments/{id} {
+      allow read: if isMe(resource.data.uid) || isFinance();
+      allow write: if false;
+    }
+    match /boosts/{id} {
+      allow read: if isMe(resource.data.uid) || isStaff();
+      allow write: if false;
+    }
+    match /subscriptions/{uid} {
+      allow read: if isMe(uid) || isStaff();
+      allow write: if false;
+    }
+    match /ads/{id} {
+      allow read: if isMe(resource.data.uid) || isStaff();
+      allow create: if active() && incoming().uid == me() && incoming().status == 'to_approve'
+        && incoming().views == 0 && incoming().clicks == 0;
+      allow update: if isMod() && onlyChanges(['status', 'reviewedBy']);
+    }
+
+    // ---------- matola ----------
+    match /deliveries/{id} {
+      allow read: if signedIn() && (me() in resource.data.members || isStaff());
+      allow write: if false; // requestMatola function and the EfuLogistix webhook
+    }
+
+    // ---------- safety and admin ----------
+    // People report through the reportContent function so counts cannot be faked.
+    match /reports/{id} {
+      allow read: if isStaff();
+      allow update: if isMod() && onlyChanges(['status', 'decidedBy', 'note', 'updatedAt']);
+    }
+    match /adminLog/{id} {
+      allow read: if role() == 'owner';
+      allow write: if false;
+    }
+    match /config/{doc} {
+      allow read: if signedIn();
+      allow write: if role() == 'owner' || (doc == 'fees' && isFinance());
+    }
+    match /stats/{day} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+  }
+}

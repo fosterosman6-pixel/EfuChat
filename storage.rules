@@ -1,0 +1,55 @@
+rules_version = '2';
+
+// EfuChat Cloud Storage rules: photos, videos, voice notes and documents.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    function image(maxMb) { return request.resource.contentType.matches('image/.*') && request.resource.size < maxMb * 1024 * 1024; }
+    function video(maxMb) { return request.resource.contentType.matches('video/.*') && request.resource.size < maxMb * 1024 * 1024; }
+    function audio(maxMb) { return request.resource.contentType.matches('audio/.*') && request.resource.size < maxMb * 1024 * 1024; }
+
+    // Profile photos: anyone signed in can see them.
+    match /avatars/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if isMe(uid) && image(5);
+    }
+
+    // Public posts, reels and stories. Reels: 60 s is enforced in the app; 100 MB cap here.
+    match /posts/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if isMe(uid) && (image(10) || video(100));
+    }
+    match /stories/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if isMe(uid) && (image(10) || video(50));
+    }
+
+    // Market photos and dispute evidence.
+    match /listings/{uid}/{file} {
+      allow read: if signedIn();
+      allow write: if isMe(uid) && image(10);
+    }
+    match /disputes/{uid}/{file} {
+      allow read: if signedIn() && (isMe(uid) || request.auth.token.role in ['owner', 'moderator', 'support']);
+      allow write: if isMe(uid) && image(10);
+    }
+
+    // Chat media: only members of that chat. Chat ids are checked against Firestore.
+    match /chats/{chatId}/{uid}/{file} {
+      function member() {
+        return request.auth.uid in firestore.get(/databases/(default)/documents/chats/$(chatId)).data.members;
+      }
+      allow read: if signedIn() && member();
+      allow write: if isMe(uid) && member()
+        && (image(15) || video(100) || audio(15) || request.resource.size < 25 * 1024 * 1024);
+    }
+
+    match /channels/{channelId}/{file} {
+      allow read: if signedIn();
+      allow write: if signedIn()
+        && request.auth.uid in firestore.get(/databases/(default)/documents/channels/$(channelId)).data.admins
+        && (image(10) || video(100));
+    }
+  }
+}

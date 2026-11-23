@@ -1,0 +1,419 @@
+{
+ "indexes": [
+  {
+   "collectionGroup": "chats",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "members",
+     "arrayConfig": "CONTAINS"
+    },
+    {
+     "fieldPath": "updatedAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "posts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "posts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "kind",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "posts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "uid",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "posts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "hashtags",
+     "arrayConfig": "CONTAINS"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "posts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "geohash",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "posts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "featured",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "comments",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "stories",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "uid",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "expiresAt",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "listings",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "category",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "listings",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "boostedUntil",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "listings",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "geohash",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "listings",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "sellerUid",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "orders",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "members",
+     "arrayConfig": "CONTAINS"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "orders",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "disputes",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "ledger",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "members",
+     "arrayConfig": "CONTAINS"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "ledger",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "kind",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "payments",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "boosts",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "endsAt",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "ads",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "deliveries",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "members",
+     "arrayConfig": "CONTAINS"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "deliveries",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "reports",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "urgent",
+     "order": "DESCENDING"
+    },
+    {
+     "fieldPath": "updatedAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "channels",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "verification.status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "ASCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "notifications",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "read",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "DESCENDING"
+    }
+   ]
+  },
+  {
+   "collectionGroup": "orders",
+   "queryScope": "COLLECTION",
+   "fields": [
+    {
+     "fieldPath": "status",
+     "order": "ASCENDING"
+    },
+    {
+     "fieldPath": "createdAt",
+     "order": "ASCENDING"
+    }
+   ]
+  }
+ ],
+ "fieldOverrides": [
+  {
+   "collectionGroup": "messages",
+   "fieldPath": "text",
+   "indexes": []
+  },
+  {
+   "collectionGroup": "posts",
+   "fieldPath": "text",
+   "indexes": []
+  },
+  {
+   "collectionGroup": "listings",
+   "fieldPath": "description",
+   "indexes": []
+  }
+ ]
+}
