@@ -269,3 +269,17 @@ test('photos and voice notes: members only, size-limited; profile photo size-lim
   await assertSucceeds(updateDoc(doc(as(A), 'users', A), { photoURL: 'data:image/jpeg;base64,' + 'x'.repeat(30000) }));
   await assertFails(updateDoc(doc(as(A), 'users', A), { photoURL: 'x'.repeat(150000) }));
 });
+
+test('market: listing photos owner-only, listings created live by the seller', async () => {
+  const ph = await addDoc(collection(as(A), 'listingMedia'), { owner: A, data: 'x'.repeat(500), createdAt: serverTimestamp() });
+  await assertSucceeds(getDoc(doc(as(B), 'listingMedia', ph.id)));
+  await assertFails(addDoc(collection(as(A), 'listingMedia'), { owner: B, data: 'x', createdAt: serverTimestamp() }));
+  await assertFails(deleteDoc(doc(as(B), 'listingMedia', ph.id)));
+  const l = { sellerUid: A, seller: { name: 'Alice', verified: false }, title: 'Sofa', description: '', priceMWK: 220000, category: 'home', condition: 'used', town: 'Mangochi', photos: [ph.id], cover: 'data:image/jpeg;base64,x', matolaDelivery: false, walletPayment: false, status: 'live', views: 0, createdAt: serverTimestamp() };
+  const ref = await addDoc(collection(as(A), 'listings'), l);
+  await assertSucceeds(getDoc(doc(as(B), 'listings', ref.id)));
+  await assertFails(updateDoc(doc(as(A), 'listings', ref.id), { status: 'sold' }));
+  await assertSucceeds(updateDoc(doc(as(A), 'listings', ref.id), { status: 'paused' }));
+  await assertFails(updateDoc(doc(as(B), 'listings', ref.id), { priceMWK: 1 }));
+  await assertSucceeds(deleteDoc(doc(as(A), 'listingMedia', ph.id)));
+});

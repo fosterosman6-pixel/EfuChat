@@ -113,3 +113,14 @@ export function usePush(uid: string | undefined) {
     return () => sub.remove();
   }, [uid]);
 }
+
+/** Asks the server to sign this account out on every phone (including this one). */
+export async function signOutAllPhones() {
+  const user = getAuth().currentUser;
+  if (!user || !NOTIFY_URL) throw new Error('Not available');
+  const res = await fetch(NOTIFY_URL.replace(/\/notify$/, '/signout-all'), {
+    method: 'POST',
+    headers: { authorization: `Bearer ${await user.getIdToken()}` },
+  });
+  if (!res.ok) throw new Error('Not available');
+}

@@ -178,6 +178,21 @@ async function sendPush(env, token, to, msg) {
 
 const first = (n) => String(n || 'Someone').split(' ')[0];
 
+/** Signs the account out on every phone: old sign-ins stop working, and pushes stop. */
+async function signOutAll(env, origin, uid) {
+  const token = await googleToken(env, origin);
+  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/accounts:update`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    body: JSON.stringify({ localId: uid, validSince: String(Math.floor(Date.now() / 1000)) }),
+  });
+  if (!r.ok) throw new Error(`revoke ${r.status}`);
+  await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/pushTokens/${uid}`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${token}` },
+  }).catch(() => null);
+}
+
 async function notify(env, origin, uid, kind, id) {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) return { status: 400, body: { error: 'bad id' } };
   const token = await googleToken(env, origin);
@@ -228,13 +243,22 @@ export default {
     if (request.method === 'GET' && url.pathname === '/.well-known/openid-configuration')
       return json({ issuer: origin, jwks_uri: `${origin}/jwks`, id_token_signing_alg_values_supported: ['RS256'], response_types_supported: ['id_token'], subject_types_supported: ['public'] });
     if (request.method === 'GET' && url.pathname === '/jwks') return json(await publicJwks(env));
-    if (request.method !== 'POST' || !['/token', '/notify'].includes(url.pathname)) return json({ error: 'not found' }, 404);
+    if (request.method !== 'POST' || !['/token', '/notify', '/signout-all'].includes(url.pathname)) return json({ error: 'not found' }, 404);
     let uid;
     try {
       const auth = request.headers.get('authorization') || '';
       uid = await verifyFirebase(auth.replace(/^Bearer\s+/i, ''), env.FIREBASE_PROJECT_ID);
     } catch (e) {
       return json({ error: 'sign in required' }, 401);
+    }
+    if (url.pathname === '/signout-all') {
+      try {
+        await signOutAll(env, origin, uid);
+        return json({ ok: true });
+      } catch (e) {
+        console.error('signout-all failed', String(e));
+        return json({ error: 'not available' }, 502);
+      }
     }
     if (url.pathname === '/notify') {
       const { kind, id } = await request.json().catch(() => ({}));

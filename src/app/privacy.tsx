@@ -1,5 +1,7 @@
 import { deleteDoc, doc, getDoc } from '@react-native-firebase/firestore';
+import { getAuth, signOut } from '@react-native-firebase/auth';
 import { router } from 'expo-router';
+import { signOutAllPhones } from '../lib/push';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEffect, useState } from 'react';
 import { Alert, ScrollView, View } from 'react-native';
@@ -109,9 +111,26 @@ export default function Privacy() {
         <Row left={<Tile name="lock" bg={colors.surface100} fg={colors.navy} />} title="App lock" subtitle="Ask for fingerprint or PIN to open" right={<Toggle value={appLock} onChange={toggleLock} label="App lock" />} />
         <Row
           left={<Tile name="phonedev" bg={colors.surface100} fg={colors.navy} />}
-          title="Sign out everywhere else"
-          subtitle="Coming soon"
-          onPress={() => Alert.alert('Coming soon', 'Signing out other phones needs the server upgrade (Blaze).')}
+          title="Sign out all phones"
+          subtitle="Including this one. Use if you lost a phone."
+          onPress={() =>
+            Alert.alert('Sign out all phones?', 'EfuChat will be signed out on every phone using your number, including this one. Sign in again here with your number.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Sign out all',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await signOutAllPhones();
+                    await signOut(getAuth());
+                    router.replace('/welcome');
+                  } catch {
+                    Alert.alert('Could not do that now', 'Check your connection and try again.');
+                  }
+                },
+              },
+            ])
+          }
           last
         />
       </Card>

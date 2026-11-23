@@ -254,6 +254,15 @@ service cloud.firestore {
     }
 
     // ---------- market ----------
+    // Listing photos (base64, free plan). Anyone signed in can view; only the owner adds or removes.
+    match /listingMedia/{id} {
+      allow get: if signedIn();
+      allow create: if active() && incoming().owner == me()
+        && incoming().keys().hasOnly(['owner', 'data', 'createdAt'])
+        && incoming().data is string && incoming().data.size() <= 700000;
+      allow delete: if signedIn() && resource.data.owner == me();
+    }
+
     match /listings/{id} {
       allow read: if signedIn() && (resource.data.status in ['live', 'sold'] || isMe(resource.data.sellerUid) || isStaff());
       allow create: if active() && incoming().sellerUid == me()

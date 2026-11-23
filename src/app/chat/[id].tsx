@@ -51,13 +51,13 @@ const TYPING_EVERY_MS = 4000;
 const PREVIEW = (m: Message) => (m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.text);
 
 export default function Conversation() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
   const { user, profile } = useSession();
   const { t } = useLang();
   const insets = useSafeAreaInsets();
   const [chat, setChat] = useState<Chat | null>(null);
   const [msgs, setMsgs] = useState<Message[]>([]);
-  const [text, setText] = useState('');
+  const [text, setText] = useState(draft ?? '');
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [selected, setSelected] = useState<Message | null>(null);
   const [other, setOther] = useState<UserProfile | null>(null);
@@ -128,12 +128,12 @@ export default function Conversation() {
     }
   }
 
-  async function call() {
+  async function call(kind: 'voice' | 'video') {
     if (isGroup || !chat) return Alert.alert('Coming soon', 'Group calls are coming in a later update.');
     const otherId = chat.members.find((m) => m !== me);
     if (!otherId || !profile) return;
     try {
-      const callId = await startCall(profile, { uid: otherId, name: chat.names[otherId] ?? 'EfuChat user' });
+      const callId = await startCall(profile, { uid: otherId, name: chat.names[otherId] ?? 'EfuChat user' }, kind);
       router.push({ pathname: '/call/[id]', params: { id: callId } });
     } catch (e) {
       Alert.alert('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
@@ -232,8 +232,8 @@ export default function Conversation() {
               </T>
             </View>
           </Pressable>
-          <IconButton name="video" label="Video call (coming soon)" size={20} onPress={() => Alert.alert('Coming soon', 'Video calls are coming in the next update.')} />
-          <IconButton name="phone" label={isGroup ? 'Group call (coming soon)' : 'Voice call'} size={20} onPress={call} />
+          <IconButton name="video" label={isGroup ? 'Group video call (coming soon)' : 'Video call'} size={20} onPress={() => call('video')} />
+          <IconButton name="phone" label={isGroup ? 'Group call (coming soon)' : 'Voice call'} size={20} onPress={() => call('voice')} />
         </View>
       </Header>
 
