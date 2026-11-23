@@ -23,7 +23,7 @@ export default function NewChat() {
   const { recent, book, permission, loading, allow } = usePeople(true);
   const [q, setQ] = useState('');
   const [remote, setRemote] = useState<UserProfile | null | 'searching'>(null);
-  const [showAllInvites, setShowAllInvites] = useState(false);
+  const [inviteCount, setInviteCount] = useState(8);
   const me = user?.uid ?? '';
   const dial = myDialCode(user?.phoneNumber);
 
@@ -205,10 +205,17 @@ export default function NewChat() {
                   <>
                     <SectionLabel>INVITE TO EFUCHAT</SectionLabel>
                     <Card>
-                      {(showAllInvites ? invites : invites.slice(0, 8)).map((c, i, arr) => (
-                        <InviteRow key={c.phone} c={c} onInvite={() => invite(c)} last={i === arr.length - 1 && (showAllInvites || invites.length <= 8)} />
+                      {invites.slice(0, inviteCount).map((c, i, arr) => (
+                        <InviteRow key={c.phone} c={c} onInvite={() => invite(c)} last={i === arr.length - 1 && inviteCount >= invites.length} />
                       ))}
-                      {!showAllInvites && invites.length > 8 && <Row title={`See all ${invites.length}`} onPress={() => setShowAllInvites(true)} last />}
+                      {inviteCount < invites.length && (
+                        <Row
+                          title={inviteCount === 8 ? `See more (${invites.length})` : `Show 50 more (${invites.length - inviteCount} left)`}
+                          subtitle="Or search a name above"
+                          onPress={() => setInviteCount(inviteCount + 50)}
+                          last
+                        />
+                      )}
                     </Card>
                   </>
                 )}

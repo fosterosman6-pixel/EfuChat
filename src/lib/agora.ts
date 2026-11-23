@@ -56,8 +56,18 @@ export async function micPermission() {
   return r === PermissionsAndroid.RESULTS.GRANTED;
 }
 
-/** Joins the voice channel for a call, renewing the token before it runs out. Returns a function that leaves it. */
-export async function joinVoice(channel: string, handler: IRtcEngineEventHandler) {
+export async function cameraPermission() {
+  if (Platform.OS !== 'android') return true;
+  const r = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.CAMERA, {
+    title: 'Camera',
+    message: 'EfuChat needs the camera for video calls.',
+    buttonPositive: 'Allow',
+  });
+  return r === PermissionsAndroid.RESULTS.GRANTED;
+}
+
+/** Joins the call's channel (voice, or video when video is true), renewing the token before it runs out. Returns a function that leaves it. */
+export async function joinVoice(channel: string, handler: IRtcEngineEventHandler, video = false) {
   const token = await callToken(channel);
   const e = getEngine();
   const all: IRtcEngineEventHandler = {
@@ -68,12 +78,26 @@ export async function joinVoice(channel: string, handler: IRtcEngineEventHandler
   };
   handler = all;
   e.registerEventHandler(handler);
+  if (video) {
+    e.enableVideo();
+    // Low-data video: 480x360 at 15 fps, about 400 kbit/s.
+    e.setVideoEncoderConfiguration({ dimensions: { width: 480, height: 360 }, frameRate: 15, bitrate: 400 });
+    e.enableLocalVideo(true);
+    e.startPreview();
+    e.setDefaultAudioRouteToSpeakerphone(true);
+  } else {
+    e.disableVideo();
+    e.setDefaultAudioRouteToSpeakerphone(false);
+  }
   e.joinChannel(token, channel, 0, {
     clientRoleType: ClientRoleType.ClientRoleBroadcaster,
     publishMicrophoneTrack: true,
     autoSubscribeAudio: true,
+    publishCameraTrack: video,
+    autoSubscribeVideo: true,
   });
   return () => {
+    if (video) e.stopPreview();
     e.leaveChannel();
     e.unregisterEventHandler(handler);
   };
@@ -81,3 +105,10 @@ export async function joinVoice(channel: string, handler: IRtcEngineEventHandler
 
 export const setMuted = (m: boolean) => getEngine().muteLocalAudioStream(m);
 export const setSpeaker = (on: boolean) => getEngine().setEnableSpeakerphone(on);
+export const flipCamera = () => getEngine().switchCamera();
+/** Turns my camera on or off during a video call. */
+export function setCamera(on: boolean) {
+  const e = getEngine();
+  e.enableLocalVideo(on);
+  e.muteLocalVideoStream(!on);
+}

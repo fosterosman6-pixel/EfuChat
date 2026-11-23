@@ -12,7 +12,7 @@ export type ContactBook = {
   invite: PhoneContact[];
 };
 
-const MAX_LOOKUPS = 600;
+const MAX_LOOKUPS = 4000;
 let cache: { key: string; book: ContactBook } | null = null;
 
 /** Normalises a number from the address book to +E.164, using my own country for local numbers. */
@@ -48,12 +48,13 @@ export async function loadContactBook(me: string, myPhone?: string | null, refre
     }
   }
 
-  const all = [...byPhone.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const named = (n: string) => /^\p{L}/u.test(n);
+  const all = [...byPhone.values()].sort((a, b) => Number(named(b.name)) - Number(named(a.name)) || a.name.localeCompare(b.name));
   const lookups = all.slice(0, MAX_LOOKUPS);
   const found = new Map<string, UserProfile>();
-  for (let i = 0; i < lookups.length; i += 20) {
+  for (let i = 0; i < lookups.length; i += 40) {
     await Promise.all(
-      lookups.slice(i, i + 20).map(async (c) => {
+      lookups.slice(i, i + 40).map(async (c) => {
         const idx = await getDoc(doc(db, 'phoneIndex', c.phone)).catch(() => null);
         const uid = idx?.exists() ? (idx.data()?.uid as string | undefined) : undefined;
         if (!uid || uid === me) return;
