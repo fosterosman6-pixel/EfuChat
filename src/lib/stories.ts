@@ -10,7 +10,11 @@ import {
   Timestamp,
   updateDoc,
   where,
+  deleteDoc,
+  getDoc,
 } from '@react-native-firebase/firestore';
+import { openDirectChat, postMessage } from './chats';
+import type { Chat } from './types';
 import { db } from './firebase';
 import type { Story, UserProfile } from './types';
 
@@ -68,4 +72,23 @@ export async function postTextStory(me: UserProfile, text: string, bg: string) {
 
 export async function markStorySeen(storyId: string, uid: string) {
   await updateDoc(doc(db, 'stories', storyId), { viewers: arrayUnion(uid) });
+}
+
+export const STORY_REACTIONS = ['❤️', '😂', '😮', '😢', '👏', '🔥'] as const;
+
+/** Sends a reply (or a reaction) to someone's story into your direct chat with them. */
+export async function replyToStory(me: UserProfile, story: Story, text: string, reaction?: string) {
+  const body = text.trim();
+  if (!body) return;
+  if (reaction) await updateDoc(doc(db, 'stories', story.id), { [`reactions.${me.uid}`]: reaction }).catch(() => {});
+  const chatId = await openDirectChat(me, { uid: story.uid, name: story.name });
+  const snap = await getDoc(doc(db, 'chats', chatId));
+  if (!snap.exists()) throw new Error('Chat not found');
+  const chat = { id: snap.id, ...snap.data() } as Chat;
+  const quote = { id: story.id, from: story.uid, name: `${story.name.split(' ')[0]}'s story`, text: (story.text || 'Story').slice(0, 200) };
+  await postMessage(chat, me.uid, { type: 'text', text: body.slice(0, 4000) }, reaction ? `${reaction} Reacted to your story` : `💬 ${body}`, { replyTo: quote });
+}
+
+export async function deleteStory(storyId: string) {
+  await deleteDoc(doc(db, 'stories', storyId));
 }

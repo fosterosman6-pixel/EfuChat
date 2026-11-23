@@ -212,7 +212,8 @@ async function notify(env, origin, uid, kind, id) {
     const text = String(last.text || 'New message').slice(0, 180);
     const body = group ? `${first(names[uid])}: ${text}` : text;
     let sent = 0;
-    for (const to of chat.members.filter((m) => m !== uid)) {
+    const muted = chat.muted || {};
+    for (const to of chat.members.filter((m) => m !== uid && !muted[m])) {
       sent += await sendPush(env, token, to, {
         notification: { title, body },
         data: { kind: 'message', chatId: id },

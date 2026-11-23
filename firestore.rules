@@ -145,7 +145,15 @@ service cloud.firestore {
       // Members update last message, unread counts, typing and the pinned message.
       // Only group admins change who is in it, who is admin, the name or who may send.
       allow update: if signedIn() && me() in resource.data.members
-        && (isGroupAdmin() || !changed().hasAny(['admins', 'adminsOnly', 'groupName', 'type', 'createdBy']))
+        && (isGroupAdmin() || !changed().hasAny(['admins', 'adminsOnly', 'adminsEdit', 'type', 'createdBy']))
+        // name, photo and description: admins, or everyone when the admins allow it
+        && (isGroupAdmin() || resource.data.get('adminsEdit', true) == false || !changed().hasAny(['groupName', 'photoURL', 'description']))
+        && (!changed().hasAny(['groupName']) || (str(incoming().groupName, 50) && incoming().groupName.size() >= 2))
+        && (!changed().hasAny(['description']) || str(incoming().description, 300))
+        && (!changed().hasAny(['photoURL']) || incoming().photoURL == null || (incoming().photoURL is string && incoming().photoURL.size() < 100000))
+        // each person mutes only for themselves
+        && (!changed().hasAny(['muted']) || (incoming().muted is map
+            && incoming().muted.diff(resource.data.get('muted', {})).affectedKeys().hasOnly([me()])))
         && (incoming().members == resource.data.members || isGroupAdmin()
             // anyone may leave a group
             || (resource.data.type == 'group' && incoming().members.toSet() == resource.data.members.toSet().difference([me()].toSet())));
@@ -189,8 +197,11 @@ service cloud.firestore {
         && (!('text' in incoming()) || str(incoming().text, 280))
         && incoming().viewers.size() == 0
         && incoming().expiresAt <= now() + duration.value(25, 'h');
-      allow update: if signedIn() && onlyChanges(['viewers'])
-        && incoming().viewers.toSet().difference(resource.data.viewers.toSet()) == [me()].toSet();
+      // Viewers add only themselves; each person sets only their own reaction.
+      allow update: if signedIn() && onlyChanges(['viewers', 'reactions'])
+        && (!changed().hasAny(['viewers']) || incoming().viewers.toSet().difference(resource.data.viewers.toSet()) == [me()].toSet())
+        && (!changed().hasAny(['reactions']) || (incoming().reactions is map
+            && incoming().reactions.diff(resource.data.get('reactions', {})).affectedKeys().hasOnly([me()])));
       allow delete: if isMe(resource.data.uid) || isMod();
     }
 

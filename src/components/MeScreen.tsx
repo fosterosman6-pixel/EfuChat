@@ -1,9 +1,10 @@
+import { pushStatus } from '../lib/push';
 import { dialog } from './Dialog';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { signOut } from '@react-native-firebase/auth';
 import { unregisterPush } from '../lib/push';
 import { router } from 'expo-router';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Linking, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WallpaperPicker, WALLPAPERS } from './Wallpaper';
 import { Avatar, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile, Toggle } from './ui';
@@ -20,6 +21,10 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
   const { lang, setLang } = useLang();
   const { dataSaver, setDataSaver, wallpaperFor, textSize, setTextSize } = usePrefs();
   const [tsOpen, setTsOpen] = useState(false);
+  const [push, setPush] = useState<{ ok: boolean; reason?: string } | null>(null);
+  useEffect(() => {
+    if (profile?.uid) pushStatus(profile.uid).then(setPush);
+  }, [profile?.uid]);
   const [wp, setWp] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -87,6 +92,23 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
             onPress={() => setTsOpen(true)}
           />
           <Row left={<Tile name="palette" bg={colors.surface100} fg={colors.navy} />} title="Chat wallpaper" subtitle={WALLPAPERS.find((w) => w.name === wallpaperFor())?.label} right={chev} onPress={() => setWp(true)} />
+          <Row
+            left={<Tile name="bell" bg={push?.ok === false ? colors.dangerTint : colors.surface100} fg={push?.ok === false ? colors.danger : colors.navy} />}
+            title="Notifications and ringing"
+            subtitle={push === null ? 'Checking…' : push.ok ? 'On: calls ring and messages pop up' : 'Not working: tap to fix'}
+            right={chev}
+            onPress={async () => {
+              if (!profile) return;
+              const r = await pushStatus(profile.uid);
+              setPush(r);
+              if (r.ok) dialog('Notifications are on', 'Calls will ring and messages will pop up on this phone.');
+              else
+                dialog('Notifications are not working', r.reason ?? 'Try again.', [
+                  { text: 'Open phone settings', onPress: () => Linking.openSettings() },
+                  { text: 'Close', style: 'cancel' },
+                ]);
+            }}
+          />
           <Row left={<Tile name="lock" bg={colors.surface100} fg={colors.navy} />} title="Privacy and security" subtitle="Last seen, read ticks, calls, app lock" onPress={() => router.push('/privacy')} />
           <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="Help" subtitle="Questions and support" onPress={() => router.push('/help')} last />
         </Card>

@@ -12,12 +12,13 @@ import {
   setDoc,
   updateDoc,
   where,
+  getDocs,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import { avatarDataUri, shrinkPhoto } from './media';
 import type { UserProfile } from './types';
 
-export type Category = 'food' | 'phones' | 'clothes' | 'home' | 'bikes' | 'other';
+export type Category = 'food' | 'phones' | 'clothes' | 'home' | 'bikes' | 'electronics' | 'farming' | 'services' | 'other';
 export type Condition = 'new' | 'like_new' | 'used';
 export type Listing = {
   id: string;
@@ -40,13 +41,16 @@ export type Listing = {
   createdAt: { toDate: () => Date } | null;
 };
 
-export const CATEGORIES: { id: Category | 'all'; label: string; icon: 'grid' | 'fish' | 'phonedev' | 'shirt' | 'sofa' | 'bike' | 'tag' }[] = [
+export const CATEGORIES: { id: Category | 'all'; label: string; icon: 'grid' | 'fish' | 'phonedev' | 'shirt' | 'sofa' | 'bike' | 'tag' | 'tv' | 'leaf' | 'tool' }[] = [
   { id: 'all', label: 'All', icon: 'grid' },
   { id: 'food', label: 'Food', icon: 'fish' },
   { id: 'phones', label: 'Phones', icon: 'phonedev' },
   { id: 'clothes', label: 'Clothes', icon: 'shirt' },
   { id: 'home', label: 'Home', icon: 'sofa' },
-  { id: 'bikes', label: 'Bikes', icon: 'bike' },
+  { id: 'bikes', label: 'Vehicles', icon: 'bike' },
+  { id: 'electronics', label: 'Electronics', icon: 'tv' },
+  { id: 'farming', label: 'Farming', icon: 'leaf' },
+  { id: 'services', label: 'Services', icon: 'tool' },
   { id: 'other', label: 'Other', icon: 'tag' },
 ];
 export const CONDITION_LABEL: Record<Condition, string> = { new: 'New', like_new: 'Like new', used: 'Used' };
@@ -154,3 +158,17 @@ export const saveListing = (uid: string, id: string, on: boolean) =>
 export function subscribeSaved(uid: string, id: string, cb: (on: boolean) => void) {
   return onSnapshot(doc(db, 'users', uid, 'saved', id), (s) => cb(s.exists()), () => cb(false));
 }
+
+/** My saved items (newest saved first), with the listings that still exist. */
+export async function savedListings(uid: string) {
+  const s = await getDocs(query(collection(db, 'users', uid, 'saved'), orderBy('at', 'desc'), limit(100)));
+  const out = await Promise.all(s.docs.map((d) => getDoc(doc(db, 'listings', d.id)).then((l) => (l.exists() ? asListing(l) : null), () => null)));
+  return out.filter((l): l is Listing => !!l && l.status !== 'removed');
+}
+
+/** The ids of everything I saved, live. */
+export function subscribeSavedIds(uid: string, cb: (ids: Set<string>) => void) {
+  return onSnapshot(collection(db, 'users', uid, 'saved'), (s) => cb(new Set(s.docs.map((d) => d.id))), () => cb(new Set()));
+}
+
+export const MALAWI_TOWNS = ['Lilongwe', 'Blantyre', 'Mzuzu', 'Zomba', 'Mangochi', 'Kasungu', 'Salima', 'Balaka', 'Liwonde', 'Karonga', 'Dedza', 'Nkhotakota', 'Mulanje', 'Thyolo', 'Monkey Bay', 'Nkhata Bay'];

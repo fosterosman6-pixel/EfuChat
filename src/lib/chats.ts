@@ -174,9 +174,19 @@ export function setGroupAdmin(chatId: string, uid: string, admin: boolean) {
   return updateDoc(doc(db, 'chats', chatId), { admins: admin ? arrayUnion(uid) : arrayRemove(uid) });
 }
 
-export function updateGroup(chatId: string, data: { groupName?: string; adminsOnly?: boolean }) {
+export function updateGroup(
+  chatId: string,
+  data: { groupName?: string; adminsOnly?: boolean; adminsEdit?: boolean; photoURL?: string | null; description?: string },
+) {
   return updateDoc(doc(db, 'chats', chatId), data);
 }
+
+export function setMuted(chatId: string, uid: string, muted: boolean) {
+  return updateDoc(doc(db, 'chats', chatId), { [`muted.${uid}`]: muted });
+}
+
+/** Who may change a group's name, photo and description. */
+export const canEditGroup = (chat: Chat | null, uid: string) => !!chat && (chat.adminsEdit === false || !!chat.admins?.includes(uid));
 
 export const isAdmin = (chat: Chat | null, uid: string) => !!chat?.admins?.includes(uid);
 

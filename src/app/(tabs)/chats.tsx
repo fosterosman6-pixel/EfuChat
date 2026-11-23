@@ -109,7 +109,7 @@ function ChatCard({ chat, me }: { chat: Chat; me: string }) {
         borderRadius: 16,
       })}
     >
-      <Avatar name={title} size={48} />
+      <Avatar name={title} size={52} uri={chat.type === 'group' ? (chat.photoURL ?? undefined) : undefined} />
       <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
           <T style={{ fontFamily: fonts.bold, flexShrink: 1 }} numberOfLines={1}>

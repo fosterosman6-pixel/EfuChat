@@ -63,6 +63,21 @@ export async function registerForPush(uid: string) {
   return token;
 }
 
+/** For the Me screen: is this phone set up to ring? Returns a plain reason when it is not. */
+export async function pushStatus(uid: string): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    const perm = await Notifications.getPermissionsAsync();
+    if (!perm.granted) {
+      const asked = perm.canAskAgain ? await Notifications.requestPermissionsAsync() : perm;
+      if (!asked.granted) return { ok: false, reason: 'Notifications are switched off for EfuChat in your phone settings.' };
+    }
+    const token = await registerForPush(uid);
+    return token ? { ok: true } : { ok: false, reason: 'This phone did not give a notification token.' };
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /** Stop pushes to this phone, e.g. on sign out. */
 export async function unregisterPush(uid: string) {
   const { data: token } = await Notifications.getDevicePushTokenAsync().catch(() => ({ data: null }));

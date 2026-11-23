@@ -226,7 +226,7 @@ export default function Conversation() {
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
           >
             <View>
-              <Avatar name={title || '?'} size={40} rounded={12} uri={!isGroup ? other?.photoURL : undefined} />
+              <Avatar name={title || '?'} size={40} rounded={12} uri={!isGroup ? other?.photoURL : (chat?.photoURL ?? undefined)} />
               {!isGroup && canSeePresence(other, profile, true) && isOnline(other) && <View style={dot} />}
             </View>
             <View style={{ flex: 1 }}>

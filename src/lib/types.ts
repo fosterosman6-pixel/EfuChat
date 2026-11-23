@@ -36,6 +36,12 @@ export type Chat = {
   admins?: string[];
   /** groups: only admins may send */
   adminsOnly?: boolean;
+  /** groups: only admins change name, photo and description (default true) */
+  adminsEdit?: boolean;
+  photoURL?: string | null;
+  description?: string;
+  /** people who muted this chat's notifications */
+  muted?: Record<string, boolean>;
   createdBy?: string;
   lastMessage?: { text: string; from: string; at: Ts | null };
   unread?: Record<string, number>;
@@ -77,6 +83,7 @@ export type Story = {
   createdAt: Ts | null;
   expiresAt: Ts;
   viewers?: string[];
+  reactions?: Record<string, string>;
 };
 
 export type Post = {

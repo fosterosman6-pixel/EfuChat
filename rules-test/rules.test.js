@@ -89,6 +89,9 @@ test('stories: viewers can only add themselves', async () => {
   await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'stories', 's1'), { uid: B, viewers: [], expiresAt: Timestamp.fromMillis(Date.now() + 3600_000) }));
   await assertSucceeds(updateDoc(doc(as(A), 'stories', 's1'), { viewers: arrayUnion(A) }));
   await assertFails(updateDoc(doc(as(A), 'stories', 's1'), { viewers: arrayUnion(EVE) }));
+  await assertSucceeds(updateDoc(doc(as(A), 'stories', 's1'), { [`reactions.${A}`]: '🔥' }));
+  await assertFails(updateDoc(doc(as(A), 'stories', 's1'), { [`reactions.${EVE}`]: '🔥' }));
+  await assertFails(updateDoc(doc(as(A), 'stories', 's1'), { text: 'changed' }));
 });
 
 test('posts: counts start at zero and cannot be faked', async () => {
@@ -206,6 +209,20 @@ test('chats: typing, pin and reactions', async () => {
   await assertFails(updateDoc(doc(as(B), 'chats', 'alice_bob', 'messages', m.id), { [`reactions.${B}`]: '❤️', text: 'edited' }));
   await assertFails(updateDoc(doc(as(EVE), 'chats', 'alice_bob', 'messages', m.id), { [`reactions.${EVE}`]: '👍' }));
   await assertSucceeds(addDoc(collection(as(B), 'chats', 'alice_bob', 'messages'), { from: B, type: 'text', text: 'ok', replyTo: { id: m.id, from: A, name: 'Alice', text: 'Moni' }, createdAt: serverTimestamp() }));
+});
+
+test('groups: photo, description, edit permission and mute', async () => {
+  const base = { type: 'group', members: [A, B], names: {}, unread: {}, groupName: 'Crew', admins: [A], updatedAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(as(A), 'chats', 'g9'), base));
+  await assertSucceeds(updateDoc(doc(as(A), 'chats', 'g9'), { description: 'Weekend plans', photoURL: 'data:image/jpeg;base64,AAAA' }));
+  await assertFails(updateDoc(doc(as(A), 'chats', 'g9'), { description: 'x'.repeat(301) }));
+  await assertFails(updateDoc(doc(as(A), 'chats', 'g9'), { photoURL: 'x'.repeat(100001) }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g9'), { description: 'mine' }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g9'), { adminsEdit: false }));
+  await assertSucceeds(updateDoc(doc(as(A), 'chats', 'g9'), { adminsEdit: false }));
+  await assertSucceeds(updateDoc(doc(as(B), 'chats', 'g9'), { description: 'ours', photoURL: null }));
+  await assertSucceeds(updateDoc(doc(as(B), 'chats', 'g9'), { [`muted.${B}`]: true }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g9'), { [`muted.${A}`]: true }));
 });
 
 test('groups: creator is the only admin; admins manage, members cannot', async () => {
