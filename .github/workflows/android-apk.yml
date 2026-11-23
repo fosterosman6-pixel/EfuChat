@@ -1,0 +1,82 @@
+# Builds an installable Android APK of EfuChat and attaches it to the "android-latest" release.
+# Run by hand from the Actions tab (or it runs when app code changes).
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [src/**, app.json, package.json, package-lock.json, assets/**, .github/workflows/android-apk.yml]
+
+concurrency: android-apk
+
+permissions:
+  contents: write # to publish the APK as a release
+  id-token: write
+
+env:
+  PROJECT: project-72f5d6ed-81b6-4920-86b
+  PACKAGE: com.efulogistix.efuchat
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/943586081894/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@project-72f5d6ed-81b6-4920-86b.iam.gserviceaccount.com
+
+      - name: Register the Android app with Firebase and get google-services.json
+        run: |
+          FB="npx --yes firebase-tools@15"
+          APP_ID=$($FB apps:list ANDROID --project "$PROJECT" --json | node -e 'const r=JSON.parse(require("fs").readFileSync(0)).result||[];const a=r.find(x=>x.packageName===process.env.PACKAGE);process.stdout.write(a?a.appId:"")')
+          if [ -z "$APP_ID" ]; then
+            APP_ID=$($FB apps:create ANDROID EfuChat --package-name "$PACKAGE" --project "$PROJECT" --json | node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync(0)).result.appId)')
+          fi
+          echo "APP_ID=$APP_ID" >> "$GITHUB_ENV"
+          $FB apps:sdkconfig ANDROID "$APP_ID" --project "$PROJECT" --out google-services.json
+          test -s google-services.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate the Android project
+        run: npx expo prebuild --platform android --no-install
+        env: { CI: '1' }
+
+      - name: Tell Firebase this APK's signing fingerprints (needed for phone sign-in)
+        run: |
+          KS=android/app/debug.keystore
+          SHA1=$(keytool -list -v -keystore "$KS" -alias androiddebugkey -storepass android -keypass android | awk '/SHA1:/{print $2}')
+          SHA256=$(keytool -list -v -keystore "$KS" -alias androiddebugkey -storepass android -keypass android | awk '/SHA256:/{print $2}')
+          FB="npx --yes firebase-tools@15"
+          EXISTING=$($FB apps:android:sha:list "$APP_ID" --project "$PROJECT" 2>/dev/null || true)
+          for S in "$SHA1" "$SHA256"; do
+            echo "$EXISTING" | grep -qi "$S" || $FB apps:android:sha:create "$APP_ID" "$S" --project "$PROJECT" || true
+          done
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          echo "org.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g" >> gradle.properties
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p 'require("./app.json").expo.version')
+          OUT="EfuChat-$VERSION-${GITHUB_SHA::7}.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "$OUT"
+          gh release delete android-latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create android-latest "$OUT" --title "EfuChat for Android (latest test build)" \
+            --notes "Test build from ${GITHUB_SHA::7}. Install on your phone: download the APK and allow installs from your browser. Signed with a test key, not for the Play Store." \
+            --prerelease
+          echo "APK: https://github.com/${GITHUB_REPOSITORY}/releases/tag/android-latest" >> "$GITHUB_STEP_SUMMARY"
