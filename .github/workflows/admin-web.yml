@@ -28,6 +28,22 @@ jobs:
         with:
           workload_identity_provider: projects/943586081894/locations/global/workloadIdentityPools/github/providers/github
           service_account: github-deploy@project-72f5d6ed-81b6-4920-86b.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Check that Google sign-in is switched on
+        run: |
+          TOKEN=$(gcloud auth print-access-token)
+          CFG=$(curl -s -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: $PROJECT" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/$PROJECT/defaultSupportedIdpConfigs/google.com")
+          DOMAINS=$(curl -s -H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: $PROJECT" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/$PROJECT/config" | node -e 'const c=JSON.parse(require("fs").readFileSync(0));process.stdout.write((c.authorizedDomains||[]).join(", "))')
+          echo "Authorized domains: $DOMAINS"
+          if echo "$CFG" | grep -q '"enabled": true'; then
+            echo "Google sign-in: ON" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "$CFG"
+            echo "::warning::Google sign-in is OFF. Turn it on: Firebase console > Authentication > Sign-in method > Google."
+            echo "Google sign-in: OFF (turn it on in Firebase console > Authentication > Sign-in method)" >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Get the web app's Firebase settings
         run: |
           FB="npx --yes firebase-tools@15"

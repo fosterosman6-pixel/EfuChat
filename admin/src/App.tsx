@@ -1,8 +1,22 @@
-import { onIdTokenChanged, signInWithPopup, signOut, User } from 'firebase/auth';
+import { getRedirectResult, onIdTokenChanged, signInWithPopup, signInWithRedirect, signOut, User } from 'firebase/auth';
 import { useEffect, useState } from 'react';
 import { auth, google, Role } from './firebase';
 import * as P from './pages';
 import { Icon, Logo, ToastProvider } from './ui';
+
+// Plain-language reasons for the sign-in errors people actually hit.
+function signInMessage(e: unknown): string {
+  const code = (e as { code?: string })?.code ?? '';
+  if (code === 'auth/operation-not-allowed')
+    return 'Google sign-in is switched off for EfuChat. Turn it on in the Firebase console: Authentication > Sign-in method > Google.';
+  if (code === 'auth/unauthorized-domain')
+    return 'This website is not on the allowed list. Add it in the Firebase console: Authentication > Settings > Authorized domains.';
+  if (code === 'auth/network-request-failed') return 'No internet connection. Check your data and try again.';
+  return `Sign-in did not work (${code || 'unknown error'}). Try again, or open this page in Chrome.`;
+}
+
+// Errors where the pop-up could not run, so a full-page redirect is tried instead.
+const POPUP_FAILED = ['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'];
 
 const NAV = [
   ['home', 'Dashboard', P.Dashboard],
@@ -21,6 +35,29 @@ type Page = (typeof NAV)[number][1];
 export default function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined);
   const [role, setRole] = useState<Role | null>(null);
+  const [signInError, setSignInError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    getRedirectResult(auth).catch((e) => setSignInError(signInMessage(e)));
+  }, []);
+
+  async function signIn() {
+    setSignInError('');
+    setBusy(true);
+    try {
+      await signInWithPopup(auth, google);
+    } catch (e) {
+      const code = (e as { code?: string })?.code ?? '';
+      if (POPUP_FAILED.includes(code)) {
+        await signInWithRedirect(auth, google).catch((err) => setSignInError(signInMessage(err)));
+      } else if (code !== 'auth/popup-closed-by-user' && code !== 'auth/cancelled-popup-request') {
+        setSignInError(signInMessage(e));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
   const [page, setPage] = useState<Page>(() => (decodeURIComponent(location.hash.slice(1)) as Page) || 'Dashboard');
 
   useEffect(
@@ -54,9 +91,14 @@ export default function App() {
           {!user ? (
             <>
               <p style={{ margin: 0, lineHeight: 1.5 }}>Sign in with the Google account your owner added as staff.</p>
-              <button className="btn lime" style={{ height: 48, fontSize: 15 }} onClick={() => signInWithPopup(auth, google).catch(() => {})}>
-                Sign in with Google
+              <button className="btn lime" style={{ height: 48, fontSize: 15 }} disabled={busy} onClick={signIn}>
+                {busy ? 'Signing in…' : 'Sign in with Google'}
               </button>
+              {signInError ? (
+                <p role="alert" style={{ margin: 0, lineHeight: 1.5, color: '#c62828' }}>
+                  {signInError}
+                </p>
+              ) : null}
             </>
           ) : (
             <>
