@@ -2,7 +2,7 @@
 // Run from the project folder:
 //   npx firebase-tools emulators:exec --only firestore --project demo-efuchat "npm --prefix rules-test test"
 import { assertFails, assertSucceeds, initializeTestEnvironment } from '@firebase/rules-unit-testing';
-import { doc, setDoc, getDoc, updateDoc, addDoc, collection, serverTimestamp, Timestamp, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocs, updateDoc, addDoc, collection, serverTimestamp, Timestamp, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { readFileSync } from 'node:fs';
 import { after, before, beforeEach, test } from 'node:test';
 
@@ -92,6 +92,15 @@ test('stories: viewers can only add themselves', async () => {
   await assertSucceeds(updateDoc(doc(as(A), 'stories', 's1'), { [`reactions.${A}`]: '🔥' }));
   await assertFails(updateDoc(doc(as(A), 'stories', 's1'), { [`reactions.${EVE}`]: '🔥' }));
   await assertFails(updateDoc(doc(as(A), 'stories', 's1'), { text: 'changed' }));
+});
+
+test('post views: I record only myself, once; only the author lists them', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'posts', 'pv1'), { uid: B, status: 'live', text: 'hi' }));
+  await assertSucceeds(setDoc(doc(as(A), 'posts', 'pv1', 'views', A), { name: 'Alice', at: serverTimestamp() }));
+  await assertFails(setDoc(doc(as(A), 'posts', 'pv1', 'views', A), { name: 'Alice again', at: serverTimestamp() }));
+  await assertFails(setDoc(doc(as(A), 'posts', 'pv1', 'views', EVE), { name: 'Eve', at: serverTimestamp() }));
+  await assertSucceeds(getDocs(collection(as(B), 'posts', 'pv1', 'views')));
+  await assertFails(getDocs(collection(as(EVE), 'posts', 'pv1', 'views')));
 });
 
 test('posts: counts start at zero and cannot be faked', async () => {

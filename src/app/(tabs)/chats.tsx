@@ -7,17 +7,18 @@ import { StoriesRow } from '../../components/StoriesRow';
 import { Avatar, Chip, Header, Icon, IconButton, T } from '../../components/ui';
 import { chatTitle, shortTime, subscribeChats, whoIsTyping } from '../../lib/chats';
 import { useLang } from '../../lib/i18n';
-import { usePrefs } from '../../lib/prefs';
+import { isOnline } from '../../lib/presence';
+import { canSeePresence, ticksOn } from '../../lib/profile';
+import { usePeople } from '../../lib/usePeople';
 import { useSession } from '../../lib/session';
 import { colors, fonts } from '../../lib/theme';
-import type { Chat } from '../../lib/types';
+import type { Chat, UserProfile } from '../../lib/types';
 
-type Filter = 'all' | 'unread' | 'groups';
+type Filter = 'all' | 'unread' | 'groups' | 'people';
 
 export default function Chats() {
   const { t } = useLang();
   const { user, profile } = useSession();
-  const { dataSaver, setDataSaver } = usePrefs();
   const [chats, setChats] = useState<Chat[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -28,10 +29,15 @@ export default function Chats() {
     if (!user) return [];
     if (filter === 'unread') return chats.filter((c) => (c.unread?.[user.uid] ?? 0) > 0);
     if (filter === 'groups') return chats.filter((c) => c.type === 'group');
+    if (filter === 'people') return chats.filter((c) => c.type !== 'group');
     return chats;
   }, [chats, filter, user]);
 
   const firstName = profile?.name.split(' ')[0] ?? '';
+  const me = user?.uid ?? '';
+  const otherOf = (c: Chat) => c.members.find((m) => m !== me) ?? '';
+  const people = usePeople(chats.filter((c) => c.type !== 'group').map(otherOf));
+  const unreadCount = chats.filter((c) => (c.unread?.[me] ?? 0) > 0).length;
 
   return (
     <View style={{ flex: 1 }}>
@@ -39,29 +45,11 @@ export default function Chats() {
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 8 }}>
           <View style={{ flex: 1 }}>
             <T style={{ color: colors.soft, fontSize: 13 }}>
-              {t('greeting')}, {firstName}
+              {t(new Date().getHours() < 12 ? 'greeting' : new Date().getHours() < 17 ? 'greetingAfternoon' : 'greetingEvening')}, {firstName}
             </T>
             <Wordmark size={22} />
           </View>
-          <Pressable
-            accessibilityRole="switch"
-            accessibilityState={{ checked: dataSaver }}
-            accessibilityLabel={t('dataSaver')}
-            onPress={() => setDataSaver(!dataSaver)}
-            style={{
-              height: 32,
-              paddingHorizontal: 10,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: dataSaver ? colors.lime : colors.soft,
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: 5,
-            }}
-          >
-            <Icon name="shield" color={dataSaver ? colors.lime : colors.soft} size={14} />
-            <T style={{ fontSize: 12, fontFamily: fonts.bold, color: dataSaver ? colors.lime : colors.soft }}>{t('dataSaver')}</T>
-          </Pressable>
+          <IconButton name="search" label="Search chats and people" onPress={() => router.push('/new-chat')} />
           <IconButton name="plus" label={t('newChat')} onPress={() => router.push('/new-chat')} />
         </View>
         <StoriesRow />
@@ -69,8 +57,9 @@ export default function Chats() {
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, padding: 16, paddingBottom: 8 }}>
         <Chip label="All" active={filter === 'all'} onPress={() => setFilter('all')} />
-        <Chip label="Unread" active={filter === 'unread'} onPress={() => setFilter('unread')} />
+        <Chip label={unreadCount ? `Unread · ${unreadCount}` : 'Unread'} active={filter === 'unread'} onPress={() => setFilter('unread')} />
         <Chip label="Groups" active={filter === 'groups'} onPress={() => setFilter('groups')} />
+        <Chip label="People" active={filter === 'people'} onPress={() => setFilter('people')} />
       </ScrollView>
 
       <FlatList
@@ -79,53 +68,75 @@ export default function Chats() {
         keyExtractor={(c) => c.id}
         contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingBottom: 16 }}
         ListEmptyComponent={<T style={{ textAlign: 'center', color: colors.muted, marginTop: 40 }}>{t('noChats')}</T>}
-        renderItem={({ item }) => <ChatCard chat={item} me={user?.uid ?? ''} />}
+        renderItem={({ item }) => <ChatCard chat={item} me={me} other={item.type === 'group' ? undefined : people[otherOf(item)]} mine={profile} />}
       />
     </View>
   );
 }
 
-function ChatCard({ chat, me }: { chat: Chat; me: string }) {
+function ChatCard({ chat, me, other, mine }: { chat: Chat; me: string; other?: UserProfile; mine?: UserProfile | null }) {
+  const group = chat.type === 'group';
   const title = chatTitle(chat, me);
   const unread = chat.unread?.[me] ?? 0;
   const last = chat.lastMessage;
   const typing = whoIsTyping(chat, me);
-  const sender = last && chat.type === 'group' && last.from !== me ? `${(chat.names[last.from] ?? '').split(' ')[0]}: ` : '';
-  const preview = typing.length
-    ? chat.type === 'group' ? `${typing[0].split(' ')[0]} is typing…` : 'typing…'
-    : last ? (last.from === me ? `You: ${last.text}` : sender + last.text) : 'Say hello';
+  const muted = !!chat.muted?.[me];
+  const online = !group && !!other && canSeePresence(other, mine, true) && isOnline(other);
+  const fromMe = !!last && last.from === me;
+  const read = fromMe && (group ? chat.members.every((m) => m === me || (chat.unread?.[m] ?? 0) === 0) : (chat.unread?.[chat.members.find((m) => m !== me) ?? ''] ?? 0) === 0 && ticksOn(other, mine));
+  const sender = last && group && !fromMe ? `${(chat.names[last.from] ?? 'Someone').split(' ')[0]}: ` : '';
+  const text = typing.length ? (group ? `${typing[0].split(' ')[0]} is typing…` : 'typing…') : last ? last.text : 'Say hello';
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${title}. ${unread ? `${unread} unread. ` : ''}${preview}`}
+      accessibilityLabel={`${group ? 'Group ' : ''}${title}. ${unread ? `${unread} unread. ` : ''}${sender}${text}`}
       onPress={() => router.push({ pathname: '/chat/[id]', params: { id: chat.id } })}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-        padding: 12,
-        backgroundColor: pressed ? colors.lime100 : '#FFFFFF',
-        borderRadius: 16,
-      })}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 14, backgroundColor: pressed ? colors.lime100 : '#FFFFFF', borderRadius: 18 })}
     >
-      <Avatar name={title} size={52} uri={chat.type === 'group' ? (chat.photoURL ?? undefined) : undefined} />
-      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 8 }}>
-          <T style={{ fontFamily: fonts.bold, flexShrink: 1 }} numberOfLines={1}>
-            {title}
-          </T>
-          <T style={{ fontSize: 12, color: unread ? colors.lime600 : colors.muted, fontFamily: unread ? fonts.bold : fonts.regular }}>
-            {shortTime(chat.updatedAt ?? null)}
-          </T>
+      {group ? (
+        <View>
+          {chat.photoURL ? (
+            <Avatar name={title} size={56} rounded={18} uri={chat.photoURL} />
+          ) : (
+            <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="group" color={colors.lime} size={28} />
+            </View>
+          )}
+          <View style={{ position: 'absolute', right: -4, bottom: -4, width: 24, height: 24, borderRadius: 12, backgroundColor: colors.lime, borderWidth: 3, borderColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}>
+            <Icon name="group" color={colors.navy} size={12} />
+          </View>
+        </View>
+      ) : (
+        <View>
+          <Avatar name={title} size={56} rounded={999} uri={other?.photoURL} />
+          {online && <View style={{ position: 'absolute', right: 1, bottom: 1, width: 16, height: 16, borderRadius: 8, backgroundColor: '#22C55E', borderWidth: 3, borderColor: '#FFFFFF' }} />}
+        </View>
+      )}
+      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
+            <T style={{ fontFamily: fonts.bold, fontSize: 16, flexShrink: 1 }} numberOfLines={1}>
+              {title}
+            </T>
+            {group && (
+              <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: colors.surface100 }}>
+                <T style={{ fontSize: 11, fontFamily: fonts.extrabold, color: colors.muted }}>Group</T>
+              </View>
+            )}
+          </View>
+          <T style={{ fontSize: 12, color: unread ? colors.lime600 : colors.muted, fontFamily: unread ? fonts.extrabold : fonts.regular }}>{shortTime(chat.updatedAt ?? null)}</T>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <T style={{ flex: 1, fontSize: 13, color: typing.length ? colors.lime600 : colors.muted, fontFamily: typing.length ? fonts.semibold : fonts.regular }} numberOfLines={1}>
-            {preview}
+          <T style={{ flex: 1, fontSize: 14, color: typing.length ? colors.lime600 : colors.muted, fontFamily: typing.length ? fonts.bold : fonts.regular }} numberOfLines={1}>
+            {!typing.length && fromMe && <T style={{ fontSize: 14, fontFamily: fonts.extrabold, color: read ? colors.lime600 : colors.muted }}>{read ? '✓✓ ' : '✓ '}</T>}
+            {!typing.length && !!sender && <T style={{ fontSize: 14, fontFamily: fonts.bold, color: colors.ink }}>{sender}</T>}
+            {text}
           </T>
+          {muted && <Icon name="bell" color={colors.muted} size={16} />}
           {unread > 0 && (
-            <View style={{ minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 999, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
-              <T style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.navy }}>{unread}</T>
+            <View style={{ minWidth: 24, height: 24, paddingHorizontal: 7, borderRadius: 999, backgroundColor: muted ? colors.soft : colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+              <T style={{ fontSize: 12, fontFamily: fonts.extrabold, color: colors.navy }}>{unread > 99 ? '99+' : String(unread)}</T>
             </View>
           )}
         </View>

@@ -1,8 +1,8 @@
 import { dialog } from './Dialog';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, Share, Text, View } from 'react-native';
-import { ago, deletePost, isLiked, liveCounts, myVote, setLiked, vote } from '../lib/posts';
+import { Modal, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { ago, deletePost, isLiked, liveCounts, markPostViewed, myVote, postViewCount, postViewers, setLiked, vote, type PostViewer } from '../lib/posts';
 import { useTextScale } from '../lib/prefs';
 import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
@@ -93,7 +93,7 @@ function Poll({ post, me }: { post: Post; me: string }) {
 }
 
 export function PostCard({ post, onOpen = true }: { post: Post; onOpen?: boolean }) {
-  const { user } = useSession();
+  const { user, profile } = useSession();
   const me = user?.uid ?? '';
   const [liked, setLikedState] = useState(false);
   const [counts, setCounts] = useState({ likes: post.counts.likes, comments: post.counts.comments });
@@ -105,6 +105,23 @@ export function PostCard({ post, onOpen = true }: { post: Post; onOpen?: boolean
       .then((c) => setCounts({ likes: Math.max(c.likes, post.counts.likes), comments: Math.max(c.comments, post.counts.comments) }))
       .catch(() => {});
   }, [post.id, me, post.counts.likes, post.counts.comments]);
+
+  const own = post.uid === me;
+  const [views, setViews] = useState<number | null>(null);
+  const [viewers, setViewers] = useState<PostViewer[] | null>(null);
+  const [viewersOpen, setViewersOpen] = useState(false);
+  useEffect(() => {
+    if (!me || !profile) return;
+    if (own) postViewCount(post.id).then(setViews, () => {});
+    else markPostViewed(post, profile);
+  }, [post.id, me]); // eslint-disable-line react-hooks/exhaustive-deps
+  function openViewers() {
+    setViewersOpen(true);
+    postViewers(post.id).then((v) => {
+      setViewers(v);
+      setViews(v.length);
+    }, () => setViewers([]));
+  }
 
   async function toggleLike() {
     const next = !liked;
@@ -156,6 +173,12 @@ export function PostCard({ post, onOpen = true }: { post: Post; onOpen?: boolean
         {post.text ? <RichText text={post.text} /> : null}
       </Pressable>
       {post.kind === 'poll' && post.poll && <Poll post={post} me={me} />}
+      {own && (
+        <Pressable accessibilityRole="button" accessibilityLabel={`Seen by ${views ?? 0}. Show who saw it`} onPress={openViewers} hitSlop={6} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}>
+          <Icon name="person" color={colors.lime600} size={16} />
+          <T style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.lime600 }}>{views === null ? 'Seen by …' : `Seen by ${views} · see who`}</T>
+        </Pressable>
+      )}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Action icon="heart" label={String(counts.likes)} color={liked ? colors.danger : colors.muted} a11y={liked ? 'Unlike' : 'Like'} onPress={toggleLike} />
@@ -168,6 +191,33 @@ export function PostCard({ post, onOpen = true }: { post: Post; onOpen?: boolean
           onPress={() => Share.share({ message: `${post.author.name} on EfuChat: ${post.text || 'a poll'}` })}
         />
       </View>
+      <Modal visible={viewersOpen} transparent animationType="slide" onRequestClose={() => setViewersOpen(false)}>
+        <Pressable accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(10,34,83,0.55)' }} onPress={() => setViewersOpen(false)} />
+        <View style={{ maxHeight: '65%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 16, paddingBottom: 28 }}>
+          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line, marginBottom: 10 }} />
+          <T style={{ fontFamily: fonts.extrabold, fontSize: 19, marginBottom: 6 }}>{viewers ? `Seen by ${viewers.length}` : 'Seen by …'}</T>
+          <ScrollView>
+            {viewers && !viewers.length && <T style={{ color: colors.muted, paddingVertical: 16 }}>Nobody has seen it yet.</T>}
+            {(viewers ?? []).map((v) => (
+              <Pressable
+                key={v.uid}
+                accessibilityRole="button"
+                onPress={() => {
+                  setViewersOpen(false);
+                  router.push({ pathname: '/profile/[uid]', params: { uid: v.uid } });
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.surface100 }}
+              >
+                <Avatar name={v.name} size={46} rounded={999} />
+                <View style={{ flex: 1 }}>
+                  <T style={{ fontFamily: fonts.bold, fontSize: 16 }} numberOfLines={1}>{v.name}</T>
+                  {!!v.at && <T style={{ fontSize: 13, color: colors.muted }}>{ago(v.at)}</T>}
+                </View>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }

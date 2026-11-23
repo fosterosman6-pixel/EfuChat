@@ -233,6 +233,11 @@ service cloud.firestore {
         allow read: if signedIn();
         allow create, delete: if isMe(uid);
       }
+      // Who saw a post: each person records only themselves, once; only the author reads the list.
+      match /views/{uid} {
+        allow create: if signedIn() && isMe(uid) && str(incoming().name, 80);
+        allow read: if isMe(uid) || isMe(get(/databases/$(database)/documents/posts/$(postId)).data.uid);
+      }
       match /votes/{uid} {
         allow read: if isMe(uid);
         allow create: if isMe(uid) && incoming().option is int

@@ -171,3 +171,24 @@ export function ago(ts: { toDate: () => Date } | null | undefined) {
   if (s < 7 * 86400) return `${Math.floor(s / 86400)}d`;
   return ts.toDate().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
+
+// ---------- who saw a post ----------
+const viewedThisSession = new Set<string>();
+
+/** Records once that I saw someone else's post (my name, time). Repeats are ignored. */
+export function markPostViewed(post: Pick<Post, 'id' | 'uid'>, me: Pick<UserProfile, 'uid' | 'name'>) {
+  if (post.uid === me.uid || viewedThisSession.has(post.id)) return;
+  viewedThisSession.add(post.id);
+  setDoc(doc(db, 'posts', post.id, 'views', me.uid), { name: (me.name || 'EfuChat user').slice(0, 80), at: serverTimestamp() }).catch(() => {});
+}
+
+export async function postViewCount(postId: string) {
+  const s = await getCountFromServer(collection(db, 'posts', postId, 'views'));
+  return s.data().count;
+}
+
+export type PostViewer = { uid: string; name: string; at: { toDate: () => Date } | null };
+export async function postViewers(postId: string): Promise<PostViewer[]> {
+  const s = await getDocs(query(collection(db, 'posts', postId, 'views'), orderBy('at', 'desc'), limit(300)));
+  return s.docs.map((d) => ({ uid: d.id, name: (d.data().name as string) ?? 'EfuChat user', at: (d.data().at as PostViewer['at']) ?? null }));
+}
