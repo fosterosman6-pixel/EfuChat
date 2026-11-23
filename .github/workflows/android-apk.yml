@@ -77,9 +77,11 @@ jobs:
         working-directory: android
         run: |
           # The file may not end with a newline; start on a fresh line so settings do not run together.
-          printf '\norg.gradle.jvmargs=-Xmx5g -XX:MaxMetaspaceSize=1g\n' >> gradle.properties
-          tail -5 gradle.properties
-          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+          # Keep memory use inside the 16 GB runner: the last try was stopped while shrinking the code.
+          printf '\norg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g\nkotlin.daemon.jvmargs=-Xmx2g\norg.gradle.workers.max=2\n' >> gradle.properties
+          tail -6 gradle.properties
+          # arm64-v8a covers almost every Android phone sold in the last 7 years.
+          ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a
 
       - name: Publish
         env:
