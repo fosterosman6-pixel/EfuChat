@@ -1,7 +1,8 @@
+import { dialog } from '../components/Dialog';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Image, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Header, Icon, T, Tile, ScaledTextInput } from '../components/ui';
 import { CATEGORIES, createListing, type Category, type Condition } from '../lib/market';
@@ -31,7 +32,7 @@ export default function Sell() {
 
   async function addPhotos(source: 'camera' | 'gallery') {
     const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return Alert.alert('Permission needed', 'Allow access to add photos of your item.');
+    if (!perm.granted) return dialog('Permission needed', 'Allow access to add photos of your item.');
     const room = 6 - photos.length;
     const res =
       source === 'camera'
@@ -47,7 +48,7 @@ export default function Sell() {
       const id = await createListing(profile, { title, description, priceMWK: priceNum, category, condition, town }, photos);
       router.replace({ pathname: '/market/[id]', params: { id } });
     } catch (e) {
-      Alert.alert('Could not post', e instanceof Error ? e.message : 'Check your connection and try again.');
+      dialog('Could not post', e instanceof Error ? e.message : 'Check your connection and try again.');
     } finally {
       setBusy(false);
     }
@@ -74,7 +75,7 @@ export default function Sell() {
                 accessibilityRole="button"
                 accessibilityLabel="Add photos"
                 onPress={() =>
-                  Alert.alert('Add photos', undefined, [
+                  dialog('Add photos', undefined, [
                     { text: 'From gallery', onPress: () => addPhotos('gallery') },
                     { text: 'Take a photo', onPress: () => addPhotos('camera') },
                     { text: 'Cancel', style: 'cancel' },

@@ -1,6 +1,7 @@
+import { dialog } from '../components/Dialog';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Header, Icon, T, ScaledTextInput } from '../components/ui';
 import type { IconName } from '../lib/icons';
@@ -27,7 +28,7 @@ export default function CreatePost() {
       await createPost(profile, text, poll ?? undefined);
       router.back();
     } catch {
-      Alert.alert('Could not post', 'Check your connection and try again.');
+      dialog('Could not post', 'Check your connection and try again.');
     } finally {
       setBusy(false);
     }
@@ -128,7 +129,7 @@ function Opt({ icon, label, onPress, soon, tint }: { icon: IconName; label: stri
       accessibilityRole="button"
       accessibilityState={{ disabled: !!soon }}
       accessibilityHint={soon ? 'Coming soon' : undefined}
-      onPress={soon ? () => Alert.alert(`${label} is coming`, 'This arrives in a later update.') : onPress}
+      onPress={soon ? () => dialog(`${label} is coming`, 'This arrives in a later update.') : onPress}
       style={{ flexDirection: 'row', alignItems: 'center', gap: 8, height: 40, paddingHorizontal: 12, borderRadius: 12, backgroundColor: tint ? colors.lime100 : colors.surface100, opacity: soon ? 0.6 : 1 }}
     >
       <Icon name={icon} color={tint ? colors.lime600 : colors.navy} size={18} />

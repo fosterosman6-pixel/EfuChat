@@ -1,6 +1,7 @@
+import { dialog } from '../components/Dialog';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, View } from 'react-native';
 import { useRefresh } from '../lib/useRefresh';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Card, Chip, Header, Icon, Row, SectionLabel, T } from '../components/ui';
@@ -36,7 +37,7 @@ export default function Calls() {
       const id = await startCall(profile, other, c.kind ?? 'voice');
       router.push({ pathname: '/call/[id]', params: { id } });
     } catch (e) {
-      Alert.alert('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
+      dialog('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
     }
   }
 

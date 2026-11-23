@@ -1,7 +1,8 @@
+import { dialog } from '../../components/Dialog';
 import { doc, getDoc } from '@react-native-firebase/firestore';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PersonRow } from '../../components/PersonRow';
 import { Card, IconButton, Row, SectionLabel, T, Tile, Toggle, ScaledTextInput } from '../../components/ui';
@@ -40,7 +41,7 @@ export default function GroupInfo() {
 
   if (!chat) return <View style={{ flex: 1, backgroundColor: colors.surface100 }} />;
   const admin = isAdmin(chat, me);
-  const fail = () => Alert.alert('Not allowed', 'Only group admins can do that.');
+  const fail = () => dialog('Not allowed', 'Only group admins can do that.');
 
   const members = [...chat.members].sort((a, b) => (a === me ? -1 : b === me ? 1 : Number(isAdmin(chat, b)) - Number(isAdmin(chat, a)) || (chat.names[a] ?? '').localeCompare(chat.names[b] ?? '')));
 
@@ -48,7 +49,7 @@ export default function GroupInfo() {
     if (uid === me) return;
     const n = chat!.names[uid] ?? 'this person';
     const isAdm = isAdmin(chat, uid);
-    Alert.alert(n, undefined, [
+    dialog(n, undefined, [
       { text: `Message ${n.split(' ')[0]}`, onPress: async () => profile && router.push({ pathname: '/chat/[id]', params: { id: await openDirectChat(profile, { uid, name: n }) } }) },
       ...(admin
         ? [
@@ -62,7 +63,7 @@ export default function GroupInfo() {
 
   function exit() {
     const lastAdmin = admin && (chat!.admins?.length ?? 0) <= 1 && chat!.members.length > 1;
-    Alert.alert('Exit group?', lastAdmin ? 'You are the only admin. Make someone else admin first, or they will not be able to manage the group.' : 'You will stop getting messages from this group.', [
+    dialog('Exit group?', lastAdmin ? 'You are the only admin. Make someone else admin first, or they will not be able to manage the group.' : 'You will stop getting messages from this group.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Exit',
@@ -72,7 +73,7 @@ export default function GroupInfo() {
             await leaveGroup(chat!.id, me);
             router.dismissAll();
           } catch {
-            Alert.alert('Could not exit', 'Try again.');
+            dialog('Could not exit', 'Try again.');
           }
         },
       },
@@ -120,10 +121,10 @@ export default function GroupInfo() {
       </View>
 
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingTop: 14 }}>
-        <Action icon="phone" label="Call" onPress={() => Alert.alert('Coming soon', 'Group calls are coming soon.')} />
+        <Action icon="phone" label="Call" onPress={() => dialog('Coming soon', 'Group calls are coming soon.')} />
         <Action icon="person" label="Add" onPress={() => (admin ? router.push({ pathname: '/new-group', params: { add: chat.id } }) : fail())} />
-        <Action icon="link" label="Invite" onPress={() => Alert.alert('Coming soon', 'Invite links are coming soon. For now, an admin can add people.')} />
-        <Action icon="search" label="Search" onPress={() => Alert.alert('Coming soon', 'Searching messages is coming soon.')} />
+        <Action icon="link" label="Invite" onPress={() => dialog('Coming soon', 'Invite links are coming soon. For now, an admin can add people.')} />
+        <Action icon="search" label="Search" onPress={() => dialog('Coming soon', 'Searching messages is coming soon.')} />
       </View>
 
       {admin && (
@@ -159,7 +160,7 @@ export default function GroupInfo() {
       <View style={{ height: 12 }} />
       <Card>
         <Row left={<Tile name="exit" bg={colors.dangerTint} fg={colors.danger} />} title="Exit group" danger onPress={exit} />
-        <Row left={<Tile name="flag" bg={colors.dangerTint} fg={colors.danger} />} title="Report group" danger onPress={() => Alert.alert('Thanks', 'Reports go to the EfuChat team once reporting is switched on.')} last />
+        <Row left={<Tile name="flag" bg={colors.dangerTint} fg={colors.danger} />} title="Report group" danger onPress={() => dialog('Thanks', 'Reports go to the EfuChat team once reporting is switched on.')} last />
       </Card>
     </ScrollView>
   );

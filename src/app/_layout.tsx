@@ -18,6 +18,7 @@ import { usePresence } from '../lib/presence';
 import { usePush } from '../lib/push';
 import { SessionProvider, useSession } from '../lib/session';
 import { colors } from '../lib/theme';
+import { DialogHost } from '../components/Dialog';
 
 export default function RootLayout() {
   const [loaded] = useFonts({ OpenSans_400Regular, OpenSans_600SemiBold, OpenSans_700Bold, OpenSans_800ExtraBold });
@@ -31,6 +32,7 @@ export default function RootLayout() {
             <Presence />
             <IncomingCalls />
             <AppLock />
+            <DialogHost />
             <StatusBar style="light" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface100 } }}>
               <Stack.Screen name="create" options={{ presentation: 'transparentModal', animation: 'fade' }} />

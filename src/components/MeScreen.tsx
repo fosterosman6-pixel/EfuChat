@@ -1,8 +1,9 @@
+import { dialog } from './Dialog';
 import { useState } from 'react';
 import { signOut } from '@react-native-firebase/auth';
 import { unregisterPush } from '../lib/push';
 import { router } from 'expo-router';
-import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WallpaperPicker, WALLPAPERS } from './Wallpaper';
 import { Avatar, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile, Toggle } from './ui';
@@ -23,7 +24,7 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
   const insets = useSafeAreaInsets();
 
   function confirmSignOut() {
-    Alert.alert('Sign out?', 'You can sign in again with your phone number.', [
+    dialog('Sign out?', 'You can sign in again with your phone number.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Sign out',

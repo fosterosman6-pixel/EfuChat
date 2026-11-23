@@ -1,6 +1,7 @@
+import { dialog } from '../../components/Dialog';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
+import { FlatList, Image, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { useRefresh } from '../../lib/useRefresh';
 import { Header, Icon, IconButton, T, ScaledTextInput } from '../../components/ui';
 import { CATEGORIES, mwk, subscribeListings, type Category, type Listing } from '../../lib/market';
@@ -47,7 +48,7 @@ export default function Market() {
             </View>
           </View>
           <IconButton name="store" label="My listings" onPress={() => router.push('/my-listings')} />
-          <IconButton name="bag" label="My orders (coming soon)" onPress={() => Alert.alert('Coming soon', 'Orders come with wallet payments in a later update. For now, message the seller.')} />
+          <IconButton name="bag" label="My orders (coming soon)" onPress={() => dialog('Coming soon', 'Orders come with wallet payments in a later update. For now, message the seller.')} />
         </View>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, marginHorizontal: 4 }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.navy700, borderRadius: 14, paddingHorizontal: 12, height: 46 }}>
@@ -58,7 +59,7 @@ export default function Market() {
             accessibilityRole="button"
             accessibilityLabel={`Sort: ${sortLabel}`}
             onPress={() =>
-              Alert.alert('Sort', undefined, [
+              dialog('Sort', undefined, [
                 { text: 'Newest first', onPress: () => setSort('newest') },
                 { text: 'Cheapest first', onPress: () => setSort('cheap') },
                 { text: 'Highest price', onPress: () => setSort('dear') },

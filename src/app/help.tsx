@@ -1,8 +1,9 @@
+import { dialog } from '../components/Dialog';
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { getAuth } from '@react-native-firebase/auth';
-import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Card, Header, Icon, Row, SectionLabel, T, Tile, ScaledTextInput } from '../components/ui';
 import { findUserByPhone, openDirectChat } from '../lib/chats';
@@ -39,12 +40,12 @@ export default function Help() {
     if (!profile) return;
     try {
       const s = SUPPORT_PHONE ? await findUserByPhone(SUPPORT_PHONE) : null;
-      if (!s) return Alert.alert('Support', 'Support chat is not set up yet. Please try again later.');
-      if (s.uid === profile.uid) return Alert.alert('Support', 'This is the support account. People who need help will message you here.');
+      if (!s) return dialog('Support', 'Support chat is not set up yet. Please try again later.');
+      if (s.uid === profile.uid) return dialog('Support', 'This is the support account. People who need help will message you here.');
       const id = await openDirectChat(profile, { uid: s.uid, name: 'EfuChat support' });
       router.push({ pathname: '/chat/[id]', params: { id } });
     } catch {
-      Alert.alert('Support', 'Could not open the support chat. Check your connection.');
+      dialog('Support', 'Could not open the support chat. Check your connection.');
     }
   }
 
@@ -101,7 +102,7 @@ export default function Help() {
           left={<Tile name="doc" bg={colors.surface100} fg={colors.navy} />}
           title="Terms and privacy policy"
           right={<Icon name="chev" color={colors.muted} size={18} />}
-          onPress={() => Alert.alert('Terms and privacy', 'EfuChat only uses your number and contacts to connect you with friends, and never sells your data. The full terms will be published before launch.')}
+          onPress={() => dialog('Terms and privacy', 'EfuChat only uses your number and contacts to connect you with friends, and never sells your data. The full terms will be published before launch.')}
         />
         <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="App version" subtitle={`${Constants.expoConfig?.version ?? ''} · EfuChat by EfuLogistix`} last />
       </Card>

@@ -1,6 +1,7 @@
+import { dialog } from '../../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Linking, Pressable, Vibration, View } from 'react-native';
+import { Animated, Linking, Pressable, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, T } from '../../components/ui';
 import { RtcSurfaceView } from 'react-native-agora';
@@ -59,7 +60,7 @@ export default function CallScreen() {
     let alive = true;
     (async () => {
       if (!(await micPermission())) {
-        Alert.alert('Microphone needed', 'Allow the microphone in settings to make calls.', [
+        dialog('Microphone needed', 'Allow the microphone in settings to make calls.', [
           { text: 'Not now', style: 'cancel' },
           { text: 'Open settings', onPress: () => Linking.openSettings() },
         ]);
@@ -67,7 +68,7 @@ export default function CallScreen() {
         return;
       }
       if (isVideo && !(await cameraPermission())) {
-        Alert.alert('Camera off', 'Allow the camera in settings for video. Carrying on with voice.');
+        dialog('Camera off', 'Allow the camera in settings for video. Carrying on with voice.');
         setVoiceOnly(true);
         return;
       }
@@ -90,7 +91,7 @@ export default function CallScreen() {
         if (alive) leave = stop;
         else stop();
       } catch (e) {
-        Alert.alert('Call could not connect', e instanceof Error ? e.message : 'Try again.');
+        dialog('Call could not connect', e instanceof Error ? e.message : 'Try again.');
         setCallStatus(id, 'ended').catch(() => {});
       }
     })();
@@ -141,7 +142,7 @@ export default function CallScreen() {
   );
 
   useEffect(() => {
-    if (!AGORA_APP_ID && call) Alert.alert('Calls are not set up yet', 'The calling service still needs its App ID.');
+    if (!AGORA_APP_ID && call) dialog('Calls are not set up yet', 'The calling service still needs its App ID.');
   }, [call]);
 
   function hangUp() {

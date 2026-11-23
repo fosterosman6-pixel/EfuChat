@@ -1,6 +1,7 @@
+import { dialog } from '../../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../../components/PostCard';
 import { Avatar, Header, Icon, T, ScaledTextInput } from '../../components/ui';
@@ -35,7 +36,7 @@ export default function PostScreen() {
       setReplyTo(null);
     } catch {
       setText(body);
-      Alert.alert('Could not post your comment', 'Check your connection and try again.');
+      dialog('Could not post your comment', 'Check your connection and try again.');
     }
   }
 

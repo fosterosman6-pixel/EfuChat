@@ -1,7 +1,8 @@
+import { dialog } from '../../components/Dialog';
 import { doc, getDoc } from '@react-native-firebase/firestore';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, Pressable, ScrollView, Share, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Pressable, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Icon, T } from '../../components/ui';
 import { openDirectChat } from '../../lib/chats';
@@ -51,13 +52,13 @@ export default function MarketItem() {
       const chatId = await openDirectChat(profile, { uid: l.sellerUid, name: l.seller.name });
       router.push({ pathname: '/chat/[id]', params: { id: chatId, draft: `Hi, is "${l.title}" (${mwk(l.priceMWK)}) still available?` } });
     } catch {
-      Alert.alert('Could not open chat', 'Try again.');
+      dialog('Could not open chat', 'Try again.');
     }
   }
 
   function manage() {
     if (!l) return;
-    Alert.alert('Your listing', undefined, [
+    dialog('Your listing', undefined, [
       l.status === 'live'
         ? { text: 'Pause (hide from Market)', onPress: () => setListingStatus(l.id, 'paused').catch(() => {}) }
         : { text: 'Put back on Market', onPress: () => setListingStatus(l.id, 'live').catch(() => {}) },
@@ -65,9 +66,9 @@ export default function MarketItem() {
         text: 'Delete listing',
         style: 'destructive',
         onPress: () =>
-          Alert.alert('Delete this listing?', 'It will be removed from the Market for good.', [
+          dialog('Delete this listing?', 'It will be removed from the Market for good.', [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Delete', style: 'destructive', onPress: () => deleteListing(l).then(() => router.back(), () => Alert.alert('Could not delete', 'Try again.')) },
+            { text: 'Delete', style: 'destructive', onPress: () => deleteListing(l).then(() => router.back(), () => dialog('Could not delete', 'Try again.')) },
           ]),
       },
       { text: 'Cancel', style: 'cancel' },
@@ -149,7 +150,7 @@ export default function MarketItem() {
       {!mine && (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, padding: 12, paddingBottom: insets.bottom + 12, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderColor: colors.surface100 }}>
           <Button title="Message" icon="chat" variant="outline" style={{ flex: 1 }} onPress={message} />
-          <Button title="Buy now" icon="bag" style={{ flex: 1.3 }} onPress={() => Alert.alert('Coming soon', 'Buying with the EfuChat wallet comes in a later update. For now, message the seller to agree on price and pick-up.')} />
+          <Button title="Buy now" icon="bag" style={{ flex: 1.3 }} onPress={() => dialog('Coming soon', 'Buying with the EfuChat wallet comes in a later update. For now, message the seller to agree on price and pick-up.')} />
         </View>
       )}
     </View>

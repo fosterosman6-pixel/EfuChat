@@ -1,6 +1,7 @@
+import { dialog } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconButton, T, ScaledTextInput } from '../components/ui';
 import { subscribeChat } from '../lib/chats';
@@ -36,7 +37,7 @@ export default function SendPhotos() {
       for (let i = 0; i < photos.length; i++) await sendPhoto(chat, user.uid, photos[i], i === 0 ? caption : '');
       router.back();
     } catch (e) {
-      Alert.alert('Not sent', e instanceof Error ? e.message : 'Check your connection and try again.');
+      dialog('Not sent', e instanceof Error ? e.message : 'Check your connection and try again.');
     } finally {
       setSending(false);
     }

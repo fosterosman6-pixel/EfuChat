@@ -1,6 +1,7 @@
+import { dialog } from '../components/Dialog';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PersonRow } from '../components/PersonRow';
 import { Avatar, Button, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile, ScaledTextInput } from '../components/ui';
@@ -14,7 +15,7 @@ import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
 import type { UserProfile } from '../lib/types';
 
-const SOON = (what: string) => () => Alert.alert('Coming soon', `${what} is coming in a later update.`);
+const SOON = (what: string) => () => dialog('Coming soon', `${what} is coming in a later update.`);
 
 export default function NewChat() {
   const { user, profile } = useSession();
@@ -64,7 +65,7 @@ export default function NewChat() {
       const id = await openDirectChat(profile, p);
       router.replace({ pathname: '/chat/[id]', params: { id } });
     } catch (e) {
-      Alert.alert('Could not open chat', e instanceof Error ? e.message : String(e));
+      dialog('Could not open chat', e instanceof Error ? e.message : String(e));
     }
   }
 

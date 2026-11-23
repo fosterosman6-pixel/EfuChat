@@ -1,9 +1,9 @@
+import { dialog } from '../../components/Dialog';
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import { doc, onSnapshot } from '@react-native-firebase/firestore';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   FlatList,
   Keyboard,
@@ -130,19 +130,19 @@ export default function Conversation() {
       await sendMessage(chat, me, body, { replyTo: reply ?? undefined });
     } catch {
       setText(body);
-      Alert.alert('Not sent', 'Check your connection and try again.');
+      dialog('Not sent', 'Check your connection and try again.');
     }
   }
 
   async function call(kind: 'voice' | 'video') {
-    if (isGroup || !chat) return Alert.alert('Coming soon', 'Group calls are coming in a later update.');
+    if (isGroup || !chat) return dialog('Coming soon', 'Group calls are coming in a later update.');
     const otherId = chat.members.find((m) => m !== me);
     if (!otherId || !profile) return;
     try {
       const callId = await startCall(profile, { uid: otherId, name: chat.names[otherId] ?? 'EfuChat user' }, kind);
       router.push({ pathname: '/call/[id]', params: { id: callId } });
     } catch (e) {
-      Alert.alert('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
+      dialog('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
     }
   }
 
@@ -150,7 +150,7 @@ export default function Conversation() {
   async function pickPhotos(source: 'camera' | 'gallery') {
     if (!chat) return;
     const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) return Alert.alert('Permission needed', source === 'camera' ? 'Allow the camera to take photos.' : 'Allow photos to share them.');
+    if (!perm.granted) return dialog('Permission needed', source === 'camera' ? 'Allow the camera to take photos.' : 'Allow photos to share them.');
     const res =
       source === 'camera'
         ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
@@ -167,7 +167,7 @@ export default function Conversation() {
     const r = await voice.finish(keep && !cancelled.current);
     setSlide(0);
     if (!r || !chat) return;
-    sendVoice(chat, me, r.uri, r.dur).catch((e) => Alert.alert('Voice note not sent', e instanceof Error ? e.message : 'Try again.'));
+    sendVoice(chat, me, r.uri, r.dur).catch((e) => dialog('Voice note not sent', e instanceof Error ? e.message : 'Try again.'));
   }
   const micPan = useMemo(
     () =>
@@ -344,7 +344,7 @@ export default function Conversation() {
                 label="Share"
                 color={colors.muted}
                 onPress={() =>
-                  Alert.alert('Share', undefined, [
+                  dialog('Share', undefined, [
                     { text: 'Photos from gallery', onPress: () => pickPhotos('gallery') },
                     { text: 'Take a photo', onPress: () => pickPhotos('camera') },
                     { text: 'Cancel', style: 'cancel' },
@@ -399,15 +399,15 @@ export default function Conversation() {
           onReply={() => startReply(selected)}
           onCopy={() => Clipboard.setStringAsync(selected.text)}
           onForward={() => router.push({ pathname: '/forward', params: { text: selected.text } })}
-          onPin={() => pinMessage(chat.id, chat.pinned?.id === selected.id ? null : { ...selected, text: PREVIEW(selected) }).catch(() => Alert.alert('Could not pin', 'Try again.'))}
+          onPin={() => pinMessage(chat.id, chat.pinned?.id === selected.id ? null : { ...selected, text: PREVIEW(selected) }).catch(() => dialog('Could not pin', 'Try again.'))}
           pinned={chat.pinned?.id === selected.id}
           onDelete={() =>
-            Alert.alert('Delete for everyone?', 'The message will be removed for everyone in this chat.', [
+            dialog('Delete for everyone?', 'The message will be removed for everyone in this chat.', [
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Delete',
                 style: 'destructive',
-                onPress: () => deleteForEveryone(chat, selected, msgs[0]?.id === selected.id).catch(() => Alert.alert('Could not delete', 'Try again.')),
+                onPress: () => deleteForEveryone(chat, selected, msgs[0]?.id === selected.id).catch(() => dialog('Could not delete', 'Try again.')),
               },
             ])
           }

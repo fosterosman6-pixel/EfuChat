@@ -1,6 +1,7 @@
+import { dialog } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { Avatar, Card, Header, Icon, Row, T } from '../components/ui';
 import { chatTitle, sendMessage, subscribeChats } from '../lib/chats';
 import { useSession } from '../lib/session';
@@ -21,7 +22,7 @@ export default function Forward() {
       await sendMessage(chat, me, text ?? '', { forwarded: true });
       router.replace({ pathname: '/chat/[id]', params: { id: chat.id } });
     } catch {
-      Alert.alert('Not sent', 'You may not be allowed to send in that chat.');
+      dialog('Not sent', 'You may not be allowed to send in that chat.');
     }
   }
 

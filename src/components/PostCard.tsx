@@ -1,6 +1,7 @@
+import { dialog } from './Dialog';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, Share, Text, View } from 'react-native';
+import { Pressable, Share, Text, View } from 'react-native';
 import { ago, deletePost, isLiked, liveCounts, myVote, setLiked, vote } from '../lib/posts';
 import { useTextScale } from '../lib/prefs';
 import { useSession } from '../lib/session';
@@ -119,10 +120,10 @@ export function PostCard({ post, onOpen = true }: { post: Post; onOpen?: boolean
 
   function more() {
     const own = post.uid === me;
-    Alert.alert('Post', undefined, [
+    dialog('Post', undefined, [
       ...(own
-        ? [{ text: 'Delete post', style: 'destructive' as const, onPress: () => deletePost(post.id).catch(() => Alert.alert('Could not delete', 'Try again.')) }]
-        : [{ text: 'Report post', onPress: () => Alert.alert('Thanks', 'Reporting opens in the next update. For now, block the person from their profile.') }]),
+        ? [{ text: 'Delete post', style: 'destructive' as const, onPress: () => deletePost(post.id).catch(() => dialog('Could not delete', 'Try again.')) }]
+        : [{ text: 'Report post', onPress: () => dialog('Thanks', 'Reporting opens in the next update. For now, block the person from their profile.') }]),
       { text: 'Cancel', style: 'cancel' as const },
     ]);
   }
@@ -159,7 +160,7 @@ export function PostCard({ post, onOpen = true }: { post: Post; onOpen?: boolean
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Action icon="heart" label={String(counts.likes)} color={liked ? colors.danger : colors.muted} a11y={liked ? 'Unlike' : 'Like'} onPress={toggleLike} />
         <Action icon="comment" label={String(counts.comments)} a11y="Comments" onPress={open} />
-        <Action icon="wallet" label="Tip" color={colors.lime600} a11y="Send a tip" onPress={() => Alert.alert('Tips are coming', 'Tips arrive once mobile money is connected.')} />
+        <Action icon="wallet" label="Tip" color={colors.lime600} a11y="Send a tip" onPress={() => dialog('Tips are coming', 'Tips arrive once mobile money is connected.')} />
         <Action
           icon="share"
           label=""

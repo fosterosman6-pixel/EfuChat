@@ -1,6 +1,7 @@
+import { dialog } from '../components/Dialog';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Card, Header, Icon, Row, SectionLabel, T, Tile, Toggle, ScaledTextInput } from '../components/ui';
 import { addGroupMembers, createGroup, subscribeChat, type Person } from '../lib/chats';
@@ -52,7 +53,7 @@ export default function NewGroup() {
       await addGroupMembers(existing, picked);
       router.back();
     } catch {
-      Alert.alert('Could not add', 'Only group admins can add people.');
+      dialog('Could not add', 'Only group admins can add people.');
     } finally {
       setBusy(false);
     }
@@ -66,7 +67,7 @@ export default function NewGroup() {
       router.dismissAll();
       router.push({ pathname: '/chat/[id]', params: { id } });
     } catch (e) {
-      Alert.alert('Could not create group', e instanceof Error ? e.message : 'Try again.');
+      dialog('Could not create group', e instanceof Error ? e.message : 'Try again.');
     } finally {
       setBusy(false);
     }
@@ -81,7 +82,7 @@ export default function NewGroup() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Add group photo (coming soon)"
-              onPress={() => Alert.alert('Coming soon', 'Group photos are coming soon.')}
+              onPress={() => dialog('Coming soon', 'Group photos are coming soon.')}
               style={{ width: 96, height: 96, borderRadius: 30, borderWidth: 2, borderStyle: 'dashed', borderColor: colors.soft, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' }}
             >
               <Icon name="camera" color={colors.muted} size={32} />

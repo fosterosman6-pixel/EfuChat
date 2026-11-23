@@ -1,10 +1,11 @@
+import { dialog } from '../components/Dialog';
 import { deleteDoc, doc, getDoc } from '@react-native-firebase/firestore';
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { router } from 'expo-router';
 import { signOutAllPhones } from '../lib/push';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Card, Header, Icon, Row, SectionLabel, T, Tile, Toggle } from '../components/ui';
 import { db } from '../lib/firebase';
@@ -36,19 +37,19 @@ export default function Privacy() {
 
   function save(change: P) {
     if (!profile) return;
-    savePrivacy(profile.uid, { ...p, ...change }).catch(() => Alert.alert('Could not save', 'Check your connection and try again.'));
+    savePrivacy(profile.uid, { ...p, ...change }).catch(() => dialog('Could not save', 'Check your connection and try again.'));
   }
 
   function pick(title: string, key: 'lastSeen' | 'calls') {
     const opts: Audience[] = ['everyone', 'chats', 'nobody'];
-    Alert.alert(title, undefined, [...opts.map((o) => ({ text: (p[key] === o ? '✓ ' : '') + AUDIENCE_LABEL[o], onPress: () => save({ [key]: o }) })), { text: 'Cancel', style: 'cancel' as const }]);
+    dialog(title, undefined, [...opts.map((o) => ({ text: (p[key] === o ? '✓ ' : '') + AUDIENCE_LABEL[o], onPress: () => save({ [key]: o }) })), { text: 'Cancel', style: 'cancel' as const }]);
   }
 
   async function toggleLock(on: boolean) {
     if (!on) return setAppLock(false);
     const enrolled = await LocalAuthentication.isEnrolledAsync().catch(() => false);
     const level = await LocalAuthentication.getEnrolledLevelAsync().catch(() => 0);
-    if (!enrolled && !level) return Alert.alert('Set up a screen lock first', 'Add a fingerprint, face or PIN in your phone settings, then turn this on.');
+    if (!enrolled && !level) return dialog('Set up a screen lock first', 'Add a fingerprint, face or PIN in your phone settings, then turn this on.');
     const r = await LocalAuthentication.authenticateAsync({ promptMessage: 'Turn on App lock' }).catch(() => null);
     if (r?.success) setAppLock(true);
   }
@@ -101,7 +102,7 @@ export default function Privacy() {
               right={<T style={{ fontFamily: fonts.bold, color: colors.lime600 }}>Unblock</T>}
               onPress={() =>
                 profile &&
-                Alert.alert(`Unblock ${names[uid] ?? 'this person'}?`, 'They will be able to message, call and see your posts again.', [
+                dialog(`Unblock ${names[uid] ?? 'this person'}?`, 'They will be able to message, call and see your posts again.', [
                   { text: 'Cancel', style: 'cancel' },
                   { text: 'Unblock', onPress: () => deleteDoc(doc(db, 'users', profile.uid, 'blocks', uid)).catch(() => {}) },
                 ])
@@ -114,7 +115,7 @@ export default function Privacy() {
           title="Sign out all phones"
           subtitle="Including this one. Use if you lost a phone."
           onPress={() =>
-            Alert.alert('Sign out all phones?', 'EfuChat will be signed out on every phone using your number, including this one. Sign in again here with your number.', [
+            dialog('Sign out all phones?', 'EfuChat will be signed out on every phone using your number, including this one. Sign in again here with your number.', [
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Sign out all',
@@ -125,7 +126,7 @@ export default function Privacy() {
                     await signOut(getAuth());
                     router.replace('/welcome');
                   } catch {
-                    Alert.alert('Could not do that now', 'Check your connection and try again.');
+                    dialog('Could not do that now', 'Check your connection and try again.');
                   }
                 },
               },

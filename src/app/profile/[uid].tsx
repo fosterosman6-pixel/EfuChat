@@ -1,7 +1,8 @@
+import { dialog } from '../../components/Dialog';
 import { doc, getDoc, onSnapshot, serverTimestamp, setDoc, deleteDoc } from '@react-native-firebase/firestore';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, Pressable, View } from 'react-native';
+import { FlatList, Pressable, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../../components/PostCard';
 import { Avatar, Icon, IconButton, T } from '../../components/ui';
@@ -39,7 +40,7 @@ export default function Profile() {
 
   async function toggleFollow() {
     if (!me || !uid) return;
-    await setFollowing(me.uid, uid, !iFollow).catch(() => Alert.alert('Could not update', 'Try again.'));
+    await setFollowing(me.uid, uid, !iFollow).catch(() => dialog('Could not update', 'Try again.'));
   }
 
   async function message() {
@@ -50,7 +51,7 @@ export default function Profile() {
 
   function more() {
     if (!me || !uid) return;
-    Alert.alert(person?.name ?? 'Person', undefined, [
+    dialog(person?.name ?? 'Person', undefined, [
       {
         text: blocked ? 'Unblock' : 'Block',
         style: blocked ? 'default' : 'destructive',
