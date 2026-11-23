@@ -39,7 +39,7 @@ export function TabBar({ state, navigateToTab }: BottomTabBarProps) {
                   onPress={() => router.push('/create')}
                   style={[styles.plus, { borderColor: dark ? colors.navy : colors.surface100 }]}
                 >
-                  <Icon name="plus" color={colors.navy} size={26} />
+                  <Icon name="plus" color={colors.navy} size={30} />
                 </Pressable>
               </View>
             );
@@ -61,19 +61,19 @@ export function TabBar({ state, navigateToTab }: BottomTabBarProps) {
             >
               <View>
                 {route.name === 'me' ? (
-                  <View style={{ borderRadius: 10, borderWidth: 2, borderColor: col }}>
-                    <Avatar name={profile?.name ?? 'Me'} uri={profile?.photoURL} size={24} rounded={8} />
+                  <View style={{ borderRadius: 11, borderWidth: 2, borderColor: col }}>
+                    <Avatar name={profile?.name ?? 'Me'} uri={profile?.photoURL} size={28} rounded={9} />
                   </View>
                 ) : (
-                  <Icon name={tab.icon} color={col} />
+                  <Icon name={tab.icon} color={col} size={28} />
                 )}
                 {route.name === 'chats' && unread > 0 && (
-                  <View style={{ position: 'absolute', top: -5, right: -11, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: colors.navy, fontSize: 11, fontFamily: fonts.extrabold }}>{unread > 99 ? '99+' : unread}</Text>
+                  <View style={{ position: 'absolute', top: -6, right: -13, minWidth: 22, height: 22, paddingHorizontal: 5, borderRadius: 11, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: colors.navy, fontSize: 13, fontFamily: fonts.extrabold }}>{unread > 99 ? '99+' : unread}</Text>
                   </View>
                 )}
               </View>
-              <Text style={{ color: col, fontSize: 11, fontFamily: focused ? fonts.bold : fonts.semibold }}>{tab.label === 'Me' ? 'Me' : t(tab.label)}</Text>
+              <Text maxFontSizeMultiplier={1.4} style={{ color: col, fontSize: 14, fontFamily: focused ? fonts.bold : fonts.semibold }}>{tab.label === 'Me' ? 'Me' : t(tab.label)}</Text>
             </Pressable>
           );
         })}
@@ -84,12 +84,12 @@ export function TabBar({ state, navigateToTab }: BottomTabBarProps) {
 
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 12, paddingTop: 8 },
-  bar: { height: 64, backgroundColor: colors.navy, borderRadius: 22, flexDirection: 'row', alignItems: 'center' },
-  slot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  bar: { height: 80, backgroundColor: colors.navy, borderRadius: 22, flexDirection: 'row', alignItems: 'center' },
+  slot: { flex: 1, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center', gap: 4 },
   plus: {
-    width: 58,
-    height: 58,
-    marginTop: -30,
+    width: 66,
+    height: 66,
+    marginTop: -34,
     borderRadius: 999,
     backgroundColor: colors.lime,
     borderWidth: 4,
