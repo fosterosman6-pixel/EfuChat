@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, FlatList, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../../components/PostCard';
 import { Avatar, Header, Icon, T } from '../../components/ui';
@@ -40,7 +40,7 @@ export default function PostScreen() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior="padding">
       <Header title="Post" onBack={() => router.back()} />
       {post === null ? (
         <T style={{ padding: 24, textAlign: 'center', color: colors.muted }}>This post was removed.</T>

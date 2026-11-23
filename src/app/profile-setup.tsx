@@ -2,7 +2,7 @@ import { updateProfile } from '@react-native-firebase/auth';
 import { doc, serverTimestamp, writeBatch } from '@react-native-firebase/firestore';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, View } from 'react-native';
+import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Button, Field, Header, T, Tile, Toggle } from '../components/ui';
 import { auth, db } from '../lib/firebase';
@@ -63,7 +63,7 @@ export default function ProfileSetup() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#FFFFFF' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#FFFFFF' }} behavior="padding">
       <Header title={t('yourProfile')} subtitle="Step 3 of 3" />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 18, paddingBottom: insets.bottom + 20, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <Field label={t('yourName')} value={name} onChangeText={setName} placeholder="First and last name" autoComplete="name" />

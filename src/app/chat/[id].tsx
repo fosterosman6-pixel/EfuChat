@@ -6,10 +6,10 @@ import {
   Alert,
   Animated,
   FlatList,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   PanResponder,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -59,6 +59,16 @@ export default function Conversation() {
   const [other, setOther] = useState<UserProfile | null>(null);
   const [, setTick] = useState(0);
   const lastTyping = useRef(0);
+  // With the keyboard up, the phone's bottom bar is hidden, so drop its padding.
+  const [kbd, setKbd] = useState(false);
+  useEffect(() => {
+    const a = Keyboard.addListener('keyboardDidShow', () => setKbd(true));
+    const b = Keyboard.addListener('keyboardDidHide', () => setKbd(false));
+    return () => {
+      a.remove();
+      b.remove();
+    };
+  }, []);
   const input = useRef<React.ComponentRef<typeof TextInput>>(null);
   const me = user?.uid ?? '';
 
@@ -153,7 +163,7 @@ export default function Conversation() {
   const readByAll = (m: Message) => (isGroup || ticksOn(other, profile)) && (others.every((o) => (chat?.unread?.[o] ?? 0) === 0) || (m.readBy?.length ?? 0) > others.length);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior="padding">
       <Header>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <IconButton name="back" label="Back to chats" onPress={() => router.back()} />
@@ -242,7 +252,7 @@ export default function Conversation() {
             </View>
           )}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingBottom: insets.bottom + 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingBottom: (kbd ? 0 : insets.bottom) + 10 }}>
             <View
               style={{
                 flex: 1,

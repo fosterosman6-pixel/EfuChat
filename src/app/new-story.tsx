@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, IconButton, T } from '../components/ui';
 import { useSession } from '../lib/session';
@@ -27,7 +27,7 @@ export default function NewStory() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: bg }} behavior="padding">
       <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
         <IconButton name="close" label="Discard story" color={fg} onPress={() => router.back()} />
       </View>

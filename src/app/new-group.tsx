@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Card, Header, Icon, Row, SectionLabel, T, Tile, Toggle } from '../components/ui';
 import { addGroupMembers, createGroup, subscribeChat, type Person } from '../lib/chats';
@@ -74,7 +74,7 @@ export default function NewGroup() {
 
   if (step === 'name') {
     return (
-      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior="padding">
         <Header title="Name your group" onBack={() => setStep('pick')} />
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
           <View style={{ alignItems: 'center', gap: 8, paddingTop: 24 }}>

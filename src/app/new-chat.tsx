@@ -80,7 +80,7 @@ export default function NewChat() {
   const subtitle = loading ? 'Finding your friends…' : book ? `${onApp.length} contact${onApp.length === 1 ? '' : 's'} on EfuChat` : undefined;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior="padding">
       <Header title="New chat" subtitle={subtitle} onBack={() => router.back()}>
         <View style={{ marginTop: 10, marginHorizontal: 4, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.navy700, borderRadius: 14, paddingLeft: 12, height: 48 }}>
           <Icon name="search" color={colors.soft} size={18} />

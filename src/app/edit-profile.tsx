@@ -1,7 +1,7 @@
 import type React from 'react';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Header, Icon, T } from '../components/ui';
 import { cleanHandle, handleStatus, saveProfile } from '../lib/profile';
@@ -54,7 +54,7 @@ export default function EditProfile() {
     status === 'checking' ? 'Checking…' : status === 'taken' ? 'Taken. Try another.' : status === 'invalid' ? '3–24 letters, numbers, dots or underscores' : status === 'ok' && h !== profile?.handle ? 'Available' : 'People can find you by this name';
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior="padding">
       <Header
         title="Edit profile"
         onBack={() => router.back()}
