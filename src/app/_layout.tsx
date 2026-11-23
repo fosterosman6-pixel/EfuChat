@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LangProvider } from '../lib/i18n';
 import { PrefsProvider } from '../lib/prefs';
 import { usePresence } from '../lib/presence';
+import { usePush } from '../lib/push';
 import { SessionProvider, useSession } from '../lib/session';
 import { colors } from '../lib/theme';
 
@@ -47,6 +48,7 @@ export default function RootLayout() {
 function Presence() {
   const { profile } = useSession();
   usePresence(profile?.uid, profile?.privacy?.lastSeen === 'nobody');
+  usePush(profile?.uid);
   return null;
 }
 

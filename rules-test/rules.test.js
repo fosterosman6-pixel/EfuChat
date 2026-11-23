@@ -249,3 +249,10 @@ test('privacy: own settings only; calls respect "nobody" and "people I chat with
   await assertSucceeds(setDoc(doc(as(B), 'handles', 'bob.banda'), { uid: B }));
   await assertFails(setDoc(doc(as(A), 'handles', 'bob.banda'), { uid: A }));
 });
+
+test('push tokens: owner writes, nobody reads', async () => {
+  await assertSucceeds(setDoc(doc(as(A), 'pushTokens', A), { tokens: ['t1'], platform: 'android' }));
+  await assertFails(getDoc(doc(as(A), 'pushTokens', A)));
+  await assertFails(setDoc(doc(as(B), 'pushTokens', A), { tokens: ['evil'] }));
+  await assertFails(setDoc(doc(as(A), 'pushTokens', A), { tokens: ['t1'], admin: true }));
+});

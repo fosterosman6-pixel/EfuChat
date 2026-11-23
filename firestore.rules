@@ -83,6 +83,13 @@ service cloud.firestore {
       allow create, update: if signedIn() && phone == request.auth.token.phone_number && incoming().uid == me();
     }
 
+    // This phone's push tokens. Only the owner writes them; only the push server (Admin access) reads them.
+    match /pushTokens/{uid} {
+      allow read: if false;
+      allow create, update: if isMe(uid) && incoming().keys().hasOnly(['tokens', 'platform'])
+        && incoming().tokens is list && incoming().tokens.size() <= 10;
+    }
+
     // Unique @handles.
     match /handles/{handle} {
       allow get: if signedIn();

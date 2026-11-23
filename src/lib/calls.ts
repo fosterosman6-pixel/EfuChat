@@ -1,5 +1,6 @@
 import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from '@react-native-firebase/firestore';
 import { db } from './firebase';
+import { notify } from './push';
 import type { Person } from './chats';
 
 export type CallStatus = 'ringing' | 'accepted' | 'declined' | 'missed' | 'cancelled' | 'ended';
@@ -34,6 +35,7 @@ export async function startCall(me: Person, other: Person, kind: Call['kind'] = 
     status: 'ringing',
     createdAt: serverTimestamp(),
   });
+  notify('call', ref.id);
   return ref.id;
 }
 

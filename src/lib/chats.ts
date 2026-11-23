@@ -17,6 +17,7 @@ import {
   where,
 } from '@react-native-firebase/firestore';
 import { db } from './firebase';
+import { notify } from './push';
 import type { Chat, Message, ReplyRef, UserProfile } from './types';
 
 export type Person = Pick<UserProfile, 'uid' | 'name'> & Partial<UserProfile>;
@@ -87,6 +88,7 @@ export async function sendMessage(chat: Chat, from: string, text: string, opts: 
   };
   for (const m of chat.members) if (m !== from) bumps[`unread.${m}`] = increment(1);
   await updateDoc(doc(db, 'chats', chat.id), bumps);
+  notify('message', chat.id);
 }
 
 /** Marks me as typing in this chat. Callers throttle this to one write every few seconds. */

@@ -1,4 +1,5 @@
 import { signOut } from '@react-native-firebase/auth';
+import { unregisterPush } from '../lib/push';
 import { router } from 'expo-router';
 import { Alert, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ export default function Me() {
         text: 'Sign out',
         style: 'destructive',
         onPress: async () => {
+          if (profile?.uid) await unregisterPush(profile.uid);
           await signOut(auth);
           router.replace('/welcome');
         },

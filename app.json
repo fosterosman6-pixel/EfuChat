@@ -29,7 +29,9 @@
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.BLUETOOTH_CONNECT",
         "android.permission.VIBRATE",
-        "android.permission.READ_CONTACTS"
+        "android.permission.READ_CONTACTS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.USE_FULL_SCREEN_INTENT"
       ]
     },
     "web": {
@@ -59,6 +61,17 @@
         "expo-contacts",
         {
           "contactsPermission": "EfuChat uses your contacts to show which friends are on EfuChat."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/android-icon-monochrome.png",
+          "color": "#0A2253",
+          "defaultChannel": "messages",
+          "sounds": [
+            "./assets/sounds/efuchat_ring.wav"
+          ]
         }
       ]
     ],
