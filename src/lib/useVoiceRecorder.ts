@@ -1,6 +1,6 @@
 import { RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync, useAudioRecorder, type RecordingOptions } from 'expo-audio';
 import { useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 /** Speech quality, mono, about 24 kbit/s: a full minute is about 180 KB. */
 const VOICE: RecordingOptions = {
@@ -35,7 +35,10 @@ export function useVoiceRecorder(onLimit: () => void) {
   async function start() {
     const p = await requestRecordingPermissionsAsync();
     if (!p.granted) {
-      Alert.alert('Microphone needed', 'Allow the microphone to send voice notes.');
+      Alert.alert('Microphone needed', 'Allow the microphone to send voice notes and make calls.', [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Open settings', onPress: () => Linking.openSettings() },
+      ]);
       return false;
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });

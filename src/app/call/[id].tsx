@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, Vibration, View } from 'react-native';
+import { Alert, Animated, Linking, Pressable, Vibration, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Icon, T } from '../../components/ui';
 import { AGORA_APP_ID, joinVoice, micPermission, setMuted, setSpeaker } from '../../lib/agora';
@@ -53,7 +53,10 @@ export default function CallScreen() {
     let alive = true;
     (async () => {
       if (!(await micPermission())) {
-        Alert.alert('Microphone needed', 'Allow the microphone in settings to make calls.');
+        Alert.alert('Microphone needed', 'Allow the microphone in settings to make calls.', [
+          { text: 'Not now', style: 'cancel' },
+          { text: 'Open settings', onPress: () => Linking.openSettings() },
+        ]);
         setCallStatus(id, 'ended').catch(() => {});
         return;
       }
