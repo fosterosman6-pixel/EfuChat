@@ -54,11 +54,11 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - name: Deploy Firestore
-        run: npx --yes firebase-tools@15 deploy --only firestore --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
+        run: npx --yes firebase-tools@15 deploy --only firestore --project "${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}" --non-interactive
       - name: Write prices, fees and app rules
         env:
           SEED_CONFIG_ONLY: 'true'
-          GCLOUD_PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+          GCLOUD_PROJECT: ${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}
         run: npm --prefix functions ci && npm --prefix functions run seed
 
   storage:
@@ -72,7 +72,7 @@ jobs:
       - uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      - run: npx --yes firebase-tools@15 deploy --only storage --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive
+      - run: npx --yes firebase-tools@15 deploy --only storage --project "${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}" --non-interactive
 
   functions:
     name: Deploy server functions
@@ -88,7 +88,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       - name: Set function secrets
         env:
-          P: ${{ vars.FIREBASE_PROJECT_ID }}
+          P: ${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}
           PAYMENTS_WEBHOOK_SECRET: ${{ secrets.PAYMENTS_WEBHOOK_SECRET }}
           EFULOGISTIX_WEBHOOK_SECRET: ${{ secrets.EFULOGISTIX_WEBHOOK_SECRET }}
           AIRTEL_CLIENT_ID: ${{ secrets.AIRTEL_CLIENT_ID }}
@@ -104,4 +104,4 @@ jobs:
       - name: Deploy functions
         run: |
           npm --prefix functions ci
-          npx --yes firebase-tools@15 deploy --only functions --project "${{ vars.FIREBASE_PROJECT_ID }}" --non-interactive --force
+          npx --yes firebase-tools@15 deploy --only functions --project "${{ vars.FIREBASE_PROJECT_ID || 'project-72f5d6ed-81b6-4920-86b' }}" --non-interactive --force
