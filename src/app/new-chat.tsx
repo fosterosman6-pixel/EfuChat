@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Share, TextInput, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Share, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Card, Header, Icon, Row, SectionLabel, T, Tile } from '../components/ui';
 import { findUserByPhone, openDirectChat } from '../lib/chats';
@@ -30,8 +30,12 @@ export default function NewChat() {
 
   async function start(other: UserProfile) {
     if (!profile) return;
-    const id = await openDirectChat(profile, other);
-    router.replace({ pathname: '/chat/[id]', params: { id } });
+    try {
+      const id = await openDirectChat(profile, other);
+      router.replace({ pathname: '/chat/[id]', params: { id } });
+    } catch (e) {
+      Alert.alert('Could not open chat', e instanceof Error ? e.message : String(e));
+    }
   }
 
   return (

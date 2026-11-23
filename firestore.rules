@@ -89,7 +89,9 @@ service cloud.firestore {
       function members() { return get(/databases/$(database)/documents/chats/$(chatId)).data.members; }
       function isGroupAdmin() { return me() in resource.data.get('admins', []); }
 
-      allow read: if signedIn() && me() in resource.data.members;
+      // A direct chat that does not exist yet may be looked up by either person in it (its id is both uids).
+      allow get: if signedIn() && (resource == null ? me() in chatId.split('_') : me() in resource.data.members);
+      allow list: if signedIn() && me() in resource.data.members;
       allow create: if active() && me() in incoming().members
         && incoming().members.size() >= 2 && incoming().members.size() <= 256
         && incoming().type in ['direct', 'group']

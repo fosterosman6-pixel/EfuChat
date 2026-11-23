@@ -49,8 +49,9 @@ export function subscribeMessages(chatId: string, cb: (msgs: Message[]) => void)
 export async function openDirectChat(me: UserProfile, other: UserProfile) {
   const id = directChatId(me.uid, other.uid);
   const ref = doc(db, 'chats', id);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
+  // A chat that does not exist yet can come back as "permission denied" on older rules; treat it as missing.
+  const exists = await getDoc(ref).then((s) => s.exists(), () => false);
+  if (!exists) {
     await setDoc(ref, {
       type: 'direct',
       members: [me.uid, other.uid],

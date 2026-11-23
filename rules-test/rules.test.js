@@ -185,3 +185,8 @@ test('phase 2 app writes: post, poll, comment, follow both sides, block', async 
   // Nobody can make someone else follow them.
   await assertFails(setDoc(doc(db, 'users', A, 'followers', B), { createdAt: serverTimestamp() }));
 });
+
+test('chats: either person can look up a direct chat that does not exist yet', async () => {
+  await assertSucceeds(getDoc(doc(as(A), 'chats', [A, EVE].sort().join('_'))));
+  await assertFails(getDoc(doc(as(B), 'chats', [A, EVE].sort().join('_'))));
+});
