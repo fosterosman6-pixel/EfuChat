@@ -58,11 +58,18 @@ export default function CallScreen() {
         return;
       }
       if (!alive) return;
-      leave = joinVoice(id, {
-        onUserJoined: () => setConnected(true),
-        onUserOffline: () => setCallStatus(id, 'ended').catch(() => {}),
-        onError: (_e, msg) => console.warn('Agora', msg),
-      });
+      try {
+        const stop = await joinVoice(id, {
+          onUserJoined: () => setConnected(true),
+          onUserOffline: () => setCallStatus(id, 'ended').catch(() => {}),
+          onError: (_e, msg) => console.warn('Agora', msg),
+        });
+        if (alive) leave = stop;
+        else stop();
+      } catch (e) {
+        Alert.alert('Call could not connect', e instanceof Error ? e.message : 'Try again.');
+        setCallStatus(id, 'ended').catch(() => {});
+      }
     })();
     return () => {
       alive = false;

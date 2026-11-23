@@ -67,8 +67,9 @@
       "typedRoutes": false
     },
     "extra": {
-      "agoraAppId": "f92ad43309574b2297e9e35fe40be46a",
-      "supportPhone": "+27612764714"
+      "agoraAppId": "8af9286daac94ca7b6e2d14090f0cdff",
+      "supportPhone": "+27612764714",
+      "callTokenUrl": "https://efuchat-agora-token.fosterosman6.workers.dev/token"
     }
   }
 }
