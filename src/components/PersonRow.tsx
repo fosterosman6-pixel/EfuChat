@@ -3,12 +3,12 @@ import { View } from 'react-native';
 import { colors } from '../lib/theme';
 import { Avatar, Icon, Row } from './ui';
 
-export function PersonRow({ name, sub, online, onPress, right, last }: { name: string; sub?: string; online?: boolean; onPress?: () => void; right?: ReactNode; last?: boolean }) {
+export function PersonRow({ name, sub, online, onPress, right, last, uri }: { name: string; sub?: string; online?: boolean; uri?: string | null; onPress?: () => void; right?: ReactNode; last?: boolean }) {
   return (
     <Row
       left={
         <View>
-          <Avatar name={name} size={44} rounded={14} />
+          <Avatar name={name} size={44} rounded={14} uri={uri} />
           {online && <View style={{ position: 'absolute', right: -2, bottom: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#3BD16F', borderWidth: 2, borderColor: '#FFFFFF' }} />}
         </View>
       }

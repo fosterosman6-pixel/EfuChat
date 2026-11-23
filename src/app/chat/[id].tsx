@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { PhotoContent, VoiceContent } from '../../components/MediaBubble';
 import { Avatar, Header, Icon, IconButton, T } from '../../components/ui';
 import {
   chatTitle,
@@ -33,6 +34,9 @@ import {
 } from '../../lib/chats';
 import { startCall } from '../../lib/calls';
 import { db } from '../../lib/firebase';
+import { sendVoice } from '../../lib/media';
+import { MAX_VOICE_SECONDS, useVoiceRecorder } from '../../lib/useVoiceRecorder';
+import * as ImagePicker from 'expo-image-picker';
 import { useLang } from '../../lib/i18n';
 import type { IconName } from '../../lib/icons';
 import { isOnline, presenceLabel } from '../../lib/presence';
@@ -44,7 +48,7 @@ import type { Chat, Message, ReplyRef, UserProfile } from '../../lib/types';
 const QUICK = ['Zikomo', 'Ndafika!', 'Ok'];
 const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const TYPING_EVERY_MS = 4000;
-const SOON = 'Photos, voice notes and documents are coming soon.';
+const PREVIEW = (m: Message) => (m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.text);
 
 export default function Conversation() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -136,9 +140,51 @@ export default function Conversation() {
     }
   }
 
+  // ---------- photos ----------
+  async function pickPhotos(source: 'camera' | 'gallery') {
+    if (!chat) return;
+    const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return Alert.alert('Permission needed', source === 'camera' ? 'Allow the camera to take photos.' : 'Allow photos to share them.');
+    const res =
+      source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4, quality: 0.8 });
+    if (res.canceled || !res.assets.length) return;
+    router.push({ pathname: '/send-photos', params: { chatId: chat.id, uris: JSON.stringify(res.assets.map((a) => a.uri)), to: title } });
+  }
+
+  // ---------- voice notes: hold the mic, slide left to cancel ----------
+  const voice = useVoiceRecorder(() => stopVoice(true));
+  const cancelled = useRef(false);
+  const [slide, setSlide] = useState(0);
+  async function stopVoice(keep: boolean) {
+    const r = await voice.finish(keep && !cancelled.current);
+    setSlide(0);
+    if (!r || !chat) return;
+    sendVoice(chat, me, r.uri, r.dur).catch((e) => Alert.alert('Voice note not sent', e instanceof Error ? e.message : 'Try again.'));
+  }
+  const micPan = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onPanResponderGrant: () => {
+          cancelled.current = false;
+          voice.start().catch(() => {});
+        },
+        onPanResponderMove: (_, g) => {
+          setSlide(Math.min(0, g.dx));
+          if (g.dx < -90) cancelled.current = true;
+        },
+        onPanResponderRelease: () => stopVoice(true),
+        onPanResponderTerminate: () => stopVoice(false),
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [chat, me],
+  );
+
   function startReply(m: Message) {
     if (m.deleted) return;
-    setReplyTo({ id: m.id, from: m.from, name: m.from === me ? 'You' : (chat?.names[m.from] ?? 'EfuChat user'), text: m.text });
+    setReplyTo({ id: m.id, from: m.from, name: m.from === me ? 'You' : (chat?.names[m.from] ?? 'EfuChat user'), text: PREVIEW(m) });
     input.current?.focus();
   }
 
@@ -174,7 +220,7 @@ export default function Conversation() {
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
           >
             <View>
-              <Avatar name={title || '?'} size={40} rounded={12} />
+              <Avatar name={title || '?'} size={40} rounded={12} uri={!isGroup ? other?.photoURL : undefined} />
               {!isGroup && canSeePresence(other, profile, true) && isOnline(other) && <View style={dot} />}
             </View>
             <View style={{ flex: 1 }}>
@@ -219,6 +265,8 @@ export default function Conversation() {
           const showName = isGroup && item.from !== me && prev?.from !== item.from;
           return (
             <Bubble
+              chatId={chat?.id ?? ''}
+              sender={item.from === me ? 'You' : (chat?.names[item.from] ?? 'EfuChat user')}
               msg={item}
               mine={item.from === me}
               read={readByAll(item)}
@@ -278,18 +326,48 @@ export default function Conversation() {
                 multiline
                 style={{ flex: 1, fontSize: 15, fontFamily: fonts.regular, color: colors.ink, maxHeight: 120, paddingVertical: 10 }}
               />
-              {!text.trim() && <IconButton name="camera" label="Camera (coming soon)" color={colors.muted} onPress={() => Alert.alert('Coming soon', SOON)} />}
-              <IconButton name="plus" label="Share (coming soon)" color={colors.muted} onPress={() => Alert.alert('Coming soon', SOON)} />
+              {!text.trim() && <IconButton name="camera" label="Take a photo" color={colors.muted} onPress={() => pickPhotos('camera')} />}
+              <IconButton
+                name="plus"
+                label="Share"
+                color={colors.muted}
+                onPress={() =>
+                  Alert.alert('Share', undefined, [
+                    { text: 'Photos from gallery', onPress: () => pickPhotos('gallery') },
+                    { text: 'Take a photo', onPress: () => pickPhotos('camera') },
+                    { text: 'Cancel', style: 'cancel' },
+                  ])
+                }
+              />
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={text.trim() ? 'Send' : 'Record voice message (coming soon)'}
-              onPress={() => (text.trim() ? send() : Alert.alert('Coming soon', SOON))}
-              style={{ width: 48, height: 48, borderRadius: 16, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Icon name={text.trim() ? 'send' : 'mic'} color={colors.lime} />
-            </Pressable>
+            {text.trim() ? (
+              <Pressable accessibilityRole="button" accessibilityLabel="Send" onPress={() => send()} style={micBtn}>
+                <Icon name="send" color={colors.lime} />
+              </Pressable>
+            ) : (
+              <View
+                accessibilityRole="button"
+                accessibilityLabel="Hold to record a voice note"
+                {...micPan.panHandlers}
+                style={[micBtn, voice.recording && { width: 60, height: 60, borderRadius: 20, backgroundColor: colors.danger }]}
+              >
+                <Icon name="mic" color={voice.recording ? '#FFFFFF' : colors.lime} size={voice.recording ? 28 : 22} />
+              </View>
+            )}
           </View>
+          {voice.recording && (
+            <View
+              pointerEvents="none"
+              style={{ position: 'absolute', left: 8, right: 76, bottom: (kbd ? 0 : insets.bottom) + 10, height: 48, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 }}
+            >
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger }} />
+              <T style={{ fontFamily: fonts.extrabold, width: 42 }}>{`${Math.floor(voice.secs / 60)}:${String(Math.floor(voice.secs % 60)).padStart(2, '0')}`}</T>
+              <T style={{ flex: 1, textAlign: 'center', color: slide < -90 ? colors.danger : colors.muted, fontFamily: fonts.semibold, transform: [{ translateX: Math.max(slide, -60) }] }}>
+                {slide < -90 ? 'Release to cancel' : '‹ Slide to cancel'}
+              </T>
+              <T style={{ fontSize: 12, color: colors.muted }}>{`max ${MAX_VOICE_SECONDS / 60}:00`}</T>
+            </View>
+          )}
         </>
       ) : (
         <View style={{ padding: 16, paddingBottom: insets.bottom + 16, alignItems: 'center', backgroundColor: '#FFFFFF', borderTopWidth: 1, borderColor: colors.line }}>
@@ -309,7 +387,7 @@ export default function Conversation() {
           onReply={() => startReply(selected)}
           onCopy={() => Clipboard.setStringAsync(selected.text)}
           onForward={() => router.push({ pathname: '/forward', params: { text: selected.text } })}
-          onPin={() => pinMessage(chat.id, chat.pinned?.id === selected.id ? null : selected).catch(() => Alert.alert('Could not pin', 'Try again.'))}
+          onPin={() => pinMessage(chat.id, chat.pinned?.id === selected.id ? null : { ...selected, text: PREVIEW(selected) }).catch(() => Alert.alert('Could not pin', 'Try again.'))}
           pinned={chat.pinned?.id === selected.id}
           onDelete={() =>
             Alert.alert('Delete for everyone?', 'The message will be removed for everyone in this chat.', [
@@ -351,6 +429,8 @@ function Quote({ reply, mine }: { reply: ReplyRef; mine: boolean }) {
 }
 
 function Bubble({
+  chatId,
+  sender,
   msg,
   mine,
   read,
@@ -360,6 +440,8 @@ function Bubble({
   onReply,
   onReact,
 }: {
+  chatId: string;
+  sender: string;
   msg: Message;
   mine: boolean;
   read: boolean;
@@ -432,7 +514,11 @@ function Bubble({
               <T style={{ fontStyle: 'italic', color: colors.muted }}>This message was deleted</T>
             </View>
           ) : (
-            <T style={{ lineHeight: 21 }}>{msg.text}</T>
+            <>
+              {msg.media?.kind === 'image' && <PhotoContent chatId={chatId} media={msg.media} caption={msg.text} from={sender} time={time} onLongPress={onLongPress} />}
+              {msg.media?.kind === 'voice' && <VoiceContent chatId={chatId} media={msg.media} mine={mine} />}
+              {!!msg.text && <T style={{ lineHeight: 21 }}>{msg.text}</T>}
+            </>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-end' }}>
             <T style={{ fontSize: 11, color: colors.muted }}>{time}</T>
@@ -506,8 +592,8 @@ function Actions({
 }) {
   const items: { icon: IconName; label: string; run: () => void; danger?: boolean }[] = [
     { icon: 'reply', label: 'Reply', run: onReply },
-    { icon: 'copy', label: 'Copy', run: onCopy },
-    { icon: 'forward', label: 'Forward', run: onForward },
+    ...(msg.text ? [{ icon: 'copy' as IconName, label: 'Copy', run: onCopy }] : []),
+    ...(!msg.media ? [{ icon: 'forward' as IconName, label: 'Forward', run: onForward }] : []),
     { icon: 'pin', label: pinned ? 'Unpin' : 'Pin', run: onPin },
     ...(mine ? [{ icon: 'trash' as IconName, label: 'Delete for everyone', run: onDelete, danger: true }] : []),
   ];
@@ -531,7 +617,7 @@ function Actions({
           ))}
         </View>
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '85%', backgroundColor: mine ? colors.lime100 : '#FFFFFF', borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8 }}>
-          <T numberOfLines={4}>{msg.text}</T>
+          <T numberOfLines={4}>{PREVIEW(msg)}</T>
         </View>
         <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', width: 240, backgroundColor: '#FFFFFF', borderRadius: 16, overflow: 'hidden' }}>
           {items.map((it, i) => (
@@ -555,4 +641,5 @@ function Actions({
 }
 
 const dot = { position: 'absolute', right: -2, bottom: -2, width: 12, height: 12, borderRadius: 6, backgroundColor: '#3BD16F', borderWidth: 2, borderColor: colors.navy } as const;
+const micBtn = { width: 48, height: 48, borderRadius: 16, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' } as const;
 const quick = { height: 36, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: colors.line, backgroundColor: '#FFFFFF', justifyContent: 'center' } as const;

@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Avatar, Button, Header, Icon, T } from '../components/ui';
+import * as ImagePicker from 'expo-image-picker';
+import { avatarDataUri } from '../lib/media';
 import { cleanHandle, handleStatus, saveProfile } from '../lib/profile';
 import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
@@ -26,6 +28,24 @@ export default function EditProfile() {
   const [kind, setKind] = useState<Kind>(profile?.accountType ?? 'personal');
   const [status, setStatus] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'invalid'>('idle');
   const [saving, setSaving] = useState(false);
+  const [photo, setPhoto] = useState<string | null | undefined>(profile?.photoURL ?? null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+
+  async function choosePhoto(source: 'camera' | 'gallery') {
+    const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return Alert.alert('Permission needed', 'Allow access to choose a profile photo.');
+    const opts = { mediaTypes: ['images'] as ImagePicker.MediaType[], allowsEditing: true, aspect: [1, 1] as [number, number], quality: 0.8 };
+    const res = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+    if (res.canceled || !res.assets[0]) return;
+    setPhotoBusy(true);
+    try {
+      setPhoto(await avatarDataUri(res.assets[0].uri));
+    } catch {
+      Alert.alert('Could not use that photo', 'Try another one.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const h = cleanHandle(handle);
   useEffect(() => {
@@ -41,7 +61,7 @@ export default function EditProfile() {
     if (!profile || !valid) return;
     setSaving(true);
     try {
-      await saveProfile(profile, { name, about, town, accountType: kind, handle: h });
+      await saveProfile(profile, { name, about, town, accountType: kind, handle: h, photoURL: photo !== (profile.photoURL ?? null) ? photo : undefined });
       router.back();
     } catch {
       Alert.alert('Could not save', status === 'ok' && h !== profile.handle ? 'That username may have just been taken. Try another.' : 'Check your connection and try again.');
@@ -67,17 +87,24 @@ export default function EditProfile() {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 14, paddingBottom: 24 }}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Change photo (coming soon)"
-          onPress={() => Alert.alert('Coming soon', 'Profile photos need file storage, which comes with the Blaze upgrade.')}
+          accessibilityLabel="Change photo"
+          onPress={() =>
+            Alert.alert('Profile photo', undefined, [
+              { text: 'Choose from gallery', onPress: () => choosePhoto('gallery') },
+              { text: 'Take a photo', onPress: () => choosePhoto('camera') },
+              ...(photo ? [{ text: 'Remove photo', style: 'destructive' as const, onPress: () => setPhoto(null) }] : []),
+              { text: 'Cancel', style: 'cancel' as const },
+            ])
+          }
           style={{ alignItems: 'center', gap: 6, paddingTop: 18 }}
         >
           <View>
-            <Avatar name={name || 'Me'} size={96} rounded={30} />
+            <Avatar name={name || 'Me'} size={96} rounded={30} uri={photo} />
             <View style={{ position: 'absolute', right: -6, bottom: -6, width: 36, height: 36, borderRadius: 12, backgroundColor: colors.navy, borderWidth: 3, borderColor: colors.surface100, alignItems: 'center', justifyContent: 'center' }}>
               <Icon name="camera" color={colors.lime} size={18} />
             </View>
           </View>
-          <T style={{ fontSize: 13, color: colors.muted }}>Change photo</T>
+          <T style={{ fontSize: 13, color: colors.muted }}>{photoBusy ? 'Preparing photo…' : 'Change photo'}</T>
         </Pressable>
 
         <Field label="NAME" value={name} onChange={(v) => setName(v.slice(0, 60))} />

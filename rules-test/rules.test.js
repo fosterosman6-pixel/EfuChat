@@ -256,3 +256,16 @@ test('push tokens: owner writes, nobody reads', async () => {
   await assertFails(setDoc(doc(as(B), 'pushTokens', A), { tokens: ['evil'] }));
   await assertFails(setDoc(doc(as(A), 'pushTokens', A), { tokens: ['t1'], admin: true }));
 });
+
+test('photos and voice notes: members only, size-limited; profile photo size-limited', async () => {
+  const m = { from: A, kind: 'image', mime: 'image/jpeg', data: 'x'.repeat(1000), createdAt: serverTimestamp() };
+  const ref = await addDoc(collection(as(A), 'chats', 'alice_bob', 'media'), m);
+  await assertSucceeds(getDoc(doc(as(B), 'chats', 'alice_bob', 'media', ref.id)));
+  await assertFails(getDoc(doc(as(EVE), 'chats', 'alice_bob', 'media', ref.id)));
+  await assertFails(addDoc(collection(as(A), 'chats', 'alice_bob', 'media'), { ...m, data: 'x'.repeat(700001) }));
+  await assertFails(addDoc(collection(as(A), 'chats', 'alice_bob', 'media'), { ...m, from: B }));
+  await assertFails(addDoc(collection(as(EVE), 'chats', 'alice_bob', 'media'), { ...m, from: EVE }));
+  await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), { from: A, type: 'image', text: '', media: { id: ref.id, kind: 'image', w: 10, h: 10 }, createdAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(as(A), 'users', A), { photoURL: 'data:image/jpeg;base64,' + 'x'.repeat(30000) }));
+  await assertFails(updateDoc(doc(as(A), 'users', A), { photoURL: 'x'.repeat(150000) }));
+});

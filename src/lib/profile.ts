@@ -12,7 +12,7 @@ export async function handleStatus(handle: string, me: string): Promise<'ok' | '
   return !s.exists() || s.data()?.uid === me ? 'ok' : 'taken';
 }
 
-export type ProfileEdit = { name: string; about: string; town: string; accountType: NonNullable<UserProfile['accountType']>; handle: string };
+export type ProfileEdit = { name: string; about: string; town: string; accountType: NonNullable<UserProfile['accountType']>; handle: string; photoURL?: string | null };
 
 /** Saves the profile, claiming the new @handle and releasing the old one in one batch. */
 export async function saveProfile(me: UserProfile, edit: ProfileEdit) {
@@ -27,6 +27,7 @@ export async function saveProfile(me: UserProfile, edit: ProfileEdit) {
     town: edit.town.trim(),
     accountType: edit.accountType,
     ...(handle ? { handle } : {}),
+    ...(edit.photoURL !== undefined ? { photoURL: edit.photoURL } : {}),
   });
   await batch.commit();
 }

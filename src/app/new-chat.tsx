@@ -110,7 +110,7 @@ export default function NewChat() {
             {results.people.length ? (
               <Card>
                 {results.people.map((r, i) => (
-                  <PersonRow key={r.person.uid} name={r.person.name} sub={r.sub} online={isOnline(r.user)} onPress={() => open(r.person)} last={i === results.people.length - 1} />
+                  <PersonRow key={r.person.uid} uri={r.user?.photoURL} name={r.person.name} sub={r.sub} online={isOnline(r.user)} onPress={() => open(r.person)} last={i === results.people.length - 1} />
                 ))}
               </Card>
             ) : (
@@ -194,7 +194,7 @@ export default function NewChat() {
                 ) : onApp.length ? (
                   <Card>
                     {onApp.map((c, i) => (
-                      <PersonRow key={c.user.uid} name={c.name} sub={isOnline(c.user) ? 'online' : (c.user.about ?? 'On EfuChat')} online={isOnline(c.user)} onPress={() => open({ uid: c.user.uid, name: c.name })} last={i === onApp.length - 1} />
+                      <PersonRow key={c.user.uid} uri={c.user.photoURL} name={c.name} sub={isOnline(c.user) ? 'online' : (c.user.about ?? 'On EfuChat')} online={isOnline(c.user)} onPress={() => open({ uid: c.user.uid, name: c.name })} last={i === onApp.length - 1} />
                     ))}
                   </Card>
                 ) : (

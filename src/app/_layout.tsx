@@ -36,6 +36,8 @@ export default function RootLayout() {
               <Stack.Screen name="create" options={{ presentation: 'transparentModal', animation: 'fade' }} />
               <Stack.Screen name="story/[uid]" options={{ animation: 'fade', contentStyle: { backgroundColor: colors.navy } }} />
               <Stack.Screen name="new-story" options={{ animation: 'slide_from_bottom' }} />
+              <Stack.Screen name="send-photos" options={{ animation: 'slide_from_bottom', contentStyle: { backgroundColor: '#000' } }} />
+              <Stack.Screen name="photo" options={{ animation: 'fade', contentStyle: { backgroundColor: '#000' } }} />
               <Stack.Screen name="call/[id]" options={{ presentation: 'fullScreenModal', animation: 'fade', gestureEnabled: false, contentStyle: { backgroundColor: colors.navy } }} />
             </Stack>
           </SessionProvider>

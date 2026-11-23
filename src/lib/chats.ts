@@ -72,17 +72,27 @@ export async function openDirectChat(me: Person, other: Person) {
 export async function sendMessage(chat: Chat, from: string, text: string, opts: { replyTo?: ReplyRef; forwarded?: boolean } = {}) {
   const body = text.trim();
   if (!body) return;
+  await postMessage(chat, from, { text: body, type: 'text' }, body, opts);
+}
+
+/** Writes a message of any kind, then bumps the chat's preview, unread counts and notifications. */
+export async function postMessage(
+  chat: Chat,
+  from: string,
+  fields: { text: string; type: Message['type']; media?: Message['media'] },
+  preview: string,
+  opts: { replyTo?: ReplyRef; forwarded?: boolean } = {},
+) {
   await addDoc(collection(db, 'chats', chat.id, 'messages'), {
     from,
-    text: body,
-    type: 'text',
+    ...fields,
     createdAt: serverTimestamp(),
     readBy: [from],
     ...(opts.replyTo ? { replyTo: { ...opts.replyTo, text: opts.replyTo.text.slice(0, 200) } } : {}),
     ...(opts.forwarded ? { forwarded: true } : {}),
   });
   const bumps: Record<string, unknown> = {
-    lastMessage: { text: body, from, at: serverTimestamp() },
+    lastMessage: { text: preview, from, at: serverTimestamp() },
     updatedAt: serverTimestamp(),
     [`typing.${from}`]: deleteField(),
   };

@@ -90,7 +90,7 @@ export default function Profile() {
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 16 }}>
             <View style={{ borderWidth: 3, borderColor: colors.lime, borderRadius: 26, padding: 3 }}>
-              <Avatar name={person?.name ?? ' '} size={72} rounded={20} />
+              <Avatar name={person?.name ?? ' '} size={72} rounded={20} uri={person?.photoURL} />
             </View>
             <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-around' }}>
               <Stat n={posts.length} label="Posts" />

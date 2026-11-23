@@ -145,6 +145,7 @@ export default function GroupInfo() {
         {members.map((uid, i) => (
           <PersonRow
             key={uid}
+            uri={uid === me ? profile?.photoURL : users[uid]?.photoURL}
             name={uid === me ? 'You' : (chat.names[uid] ?? 'EfuChat user')}
             sub={uid === me ? profile?.name : canSeePresence(users[uid], profile, false) ? presenceLabel(users[uid]) : (users[uid]?.about ?? 'EfuChat')}
             online={uid !== me && canSeePresence(users[uid], profile, false) && isOnline(users[uid])}

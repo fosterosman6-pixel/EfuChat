@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -57,7 +58,8 @@ export function IconButton({
   );
 }
 
-export function Avatar({ name, size = 44, rounded = 14 }: { name: string; size?: number; rounded?: number }) {
+export function Avatar({ name, size = 44, rounded = 14, uri }: { name: string; size?: number; rounded?: number; uri?: string | null }) {
+  if (uri) return <Image source={{ uri }} accessibilityIgnoresInvertColors style={{ width: size, height: size, borderRadius: rounded, backgroundColor: colors.surface100 }} />;
   const c = avatarColors(name);
   return (
     <View style={{ width: size, height: size, borderRadius: rounded, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>

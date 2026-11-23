@@ -59,7 +59,11 @@ export type Message = {
   reactions?: Record<string, string>;
   deleted?: boolean;
   forwarded?: boolean;
+  /** photos and voice notes: the file lives in chats/{chatId}/media/{id} */
+  media?: MediaRef;
 };
+
+export type MediaRef = { id: string; kind: 'image' | 'voice'; w?: number; h?: number; thumb?: string; dur?: number };
 
 export type Story = {
   id: string;

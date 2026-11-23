@@ -44,7 +44,10 @@ service cloud.firestore {
             && incoming().privacy.get('calls', 'everyone') in ['everyone', 'chats', 'nobody']
             && incoming().privacy.get('readTicks', true) is bool))
         && str(incoming().name, 60) && str(incoming().about, 140)
-        && incoming().accountType in ['personal', 'creator', 'business'];
+        && incoming().accountType in ['personal', 'creator', 'business']
+        // profile photo: a small JPEG kept in the document itself (free plan, no file storage)
+        && (!('photoURL' in incoming()) || incoming().photoURL == null
+            || (incoming().photoURL is string && incoming().photoURL.size() < 100000));
       allow update: if isMod() && onlyChanges(['status', 'verified']);
       // Presence heartbeat (online / last seen); only the server time is accepted.
       allow update: if isMe(uid) && onlyChanges(['lastActiveAt']) && incoming().lastActiveAt == request.time;
@@ -146,6 +149,15 @@ service cloud.firestore {
         && (incoming().members == resource.data.members || isGroupAdmin()
             // anyone may leave a group
             || (resource.data.type == 'group' && incoming().members.toSet() == resource.data.members.toSet().difference([me()].toSet())));
+
+      // Photos and voice notes (base64), one per document; messages point to them.
+      match /media/{mediaId} {
+        allow get: if signedIn() && me() in members();
+        allow create: if active() && me() in members() && incoming().from == me()
+          && incoming().keys().hasOnly(['from', 'kind', 'mime', 'data', 'createdAt'])
+          && incoming().kind in ['image', 'voice'] && incoming().mime in ['image/jpeg', 'audio/mp4']
+          && incoming().data is string && incoming().data.size() <= 700000;
+      }
 
       match /messages/{msgId} {
         allow read: if signedIn() && me() in members();

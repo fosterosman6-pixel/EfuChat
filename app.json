@@ -54,7 +54,9 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "EfuChat needs your photos so you can share them in chats and stories."
+          "photosPermission": "EfuChat needs your photos so you can share them in chats and stories.",
+          "cameraPermission": "EfuChat uses the camera so you can take photos for chats and your profile.",
+          "microphonePermission": false
         }
       ],
       [

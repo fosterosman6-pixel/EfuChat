@@ -38,7 +38,7 @@ export default function Me() {
       <Header>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <IconButton name="back" label="Back to Home" onPress={() => router.back()} />
-          <Avatar name={profile?.name ?? 'Me'} size={60} rounded={18} />
+          <Avatar name={profile?.name ?? 'Me'} size={60} rounded={18} uri={profile?.photoURL} />
           <View style={{ flex: 1 }}>
             <T style={{ color: '#FFFFFF', fontSize: 20, fontFamily: fonts.extrabold }} numberOfLines={1}>
               {profile?.name}
