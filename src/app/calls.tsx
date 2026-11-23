@@ -33,7 +33,7 @@ export default function Calls() {
     if (!profile) return;
     const other = c.from === me ? { uid: c.to, name: c.toName } : { uid: c.from, name: c.fromName };
     try {
-      const id = await startCall(profile, other);
+      const id = await startCall(profile, other, c.kind ?? 'voice');
       router.push({ pathname: '/call/[id]', params: { id } });
     } catch (e) {
       Alert.alert('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
@@ -60,11 +60,11 @@ export default function Calls() {
             key={c.id}
             left={<Avatar name={name} size={44} rounded={14} />}
             title={name}
-            subtitle={`${out ? '↗' : '↙'} ${when(c)}${missed ? ' · missed' : extra}`}
+            subtitle={`${out ? '↗' : '↙'} ${c.kind === 'video' ? 'Video · ' : ''}${when(c)}${missed ? ' · missed' : extra}`}
             danger={missed}
             right={
-              <Pressable accessibilityRole="button" accessibilityLabel={`Call ${name}`} onPress={() => callBack(c)} hitSlop={8}>
-                <Icon name="phone" color={colors.navy} size={22} />
+              <Pressable accessibilityRole="button" accessibilityLabel={`${c.kind === 'video' ? 'Video call' : 'Call'} ${name}`} onPress={() => callBack(c)} hitSlop={8}>
+                <Icon name={c.kind === 'video' ? 'video' : 'phone'} color={colors.navy} size={22} />
               </Pressable>
             }
             last={i === items.length - 1}
