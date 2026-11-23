@@ -62,6 +62,17 @@ jobs:
             echo "$EXISTING" | grep -qi "$S" || $FB apps:android:sha:create "$APP_ID" "$S" --project "$PROJECT" || true
           done
 
+      - name: Let Kotlin read libraries built with a newer Kotlin (Firebase Auth 25)
+        run: |
+          mkdir -p ~/.gradle/init.d
+          cat > ~/.gradle/init.d/kotlin-metadata.gradle <<'GRADLE'
+          allprojects {
+            tasks.matching { it.class.name.contains('KotlinCompile') }.configureEach { t ->
+              t.compilerOptions.freeCompilerArgs.add('-Xskip-metadata-version-check')
+            }
+          }
+          GRADLE
+
       - name: Build the APK
         working-directory: android
         run: |
