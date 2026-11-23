@@ -4,7 +4,7 @@
 set -euo pipefail
 PROJECT=project-72f5d6ed-81b6-4920-86b
 NUMBER=943586081894
-REPO=fosterosman6-pixel/efuchat
+REPO=fosterosman6-pixel/EfuChat
 SA=github-deploy@$PROJECT.iam.gserviceaccount.com
 
 gcloud config set project "$PROJECT"
