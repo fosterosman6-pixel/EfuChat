@@ -41,7 +41,7 @@ export default function CreateMenu() {
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !b.go }}
                 onPress={b.go}
-                style={{ width: '48.5%', padding: 16, borderRadius: 16, backgroundColor: bg, gap: 10, opacity: b.go ? 1 : 0.7 }}
+                style={{ flexGrow: 1, flexBasis: '40%', padding: 16, borderRadius: 16, backgroundColor: bg, gap: 10, opacity: b.go ? 1 : 0.7 }}
               >
                 <Tile name={b.icon} bg={b.dark || b.tint ? colors.lime : colors.navy} fg={b.dark || b.tint ? colors.navy : colors.lime} size={42} />
                 <View>
