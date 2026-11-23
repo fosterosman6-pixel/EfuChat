@@ -33,13 +33,27 @@ export function chatTitle(chat: Chat, me: string) {
   return chat.names[other] ?? 'EfuChat user';
 }
 
-export function subscribeChats(uid: string, cb: (chats: Chat[]) => void) {
-  const q = query(collection(db, 'chats'), where('members', 'array-contains', uid), orderBy('updatedAt', 'desc'), limit(100));
-  return onSnapshot(
-    q,
-    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Chat)),
-    () => cb([]),
+/** My chats, newest first. If the sorted query fails (e.g. an index problem), loads unsorted and sorts on the phone. */
+export function subscribeChats(uid: string, cb: (chats: Chat[]) => void, onError?: (message: string) => void) {
+  const toChats = (docs: { id: string; data: () => unknown }[]) => docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Chat);
+  const time = (c: Chat) => (c.updatedAt as { toMillis?: () => number } | null | undefined)?.toMillis?.() ?? Number.MAX_SAFE_INTEGER;
+  let fallback: (() => void) | null = null;
+  const unsub = onSnapshot(
+    query(collection(db, 'chats'), where('members', 'array-contains', uid), orderBy('updatedAt', 'desc'), limit(100)),
+    (snap) => cb(toChats(snap.docs)),
+    (e) => {
+      fallback?.();
+      fallback = onSnapshot(
+        query(collection(db, 'chats'), where('members', 'array-contains', uid), limit(150)),
+        (snap) => cb(toChats(snap.docs).sort((a, b) => time(b) - time(a))),
+        (e2) => onError?.(String(e2?.message ?? e?.message ?? 'Could not load chats')),
+      );
+    },
   );
+  return () => {
+    unsub();
+    fallback?.();
+  };
 }
 
 export function subscribeChat(chatId: string, cb: (chat: Chat | null) => void) {

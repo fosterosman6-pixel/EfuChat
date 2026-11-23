@@ -21,9 +21,17 @@ export default function Chats() {
   const { user, profile } = useSession();
   const [chats, setChats] = useState<Chat[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
+  const [loadError, setLoadError] = useState('');
 
   const { key, refreshing, onRefresh } = useRefresh();
-  useEffect(() => (user ? subscribeChats(user.uid, setChats) : undefined), [user, key]);
+  useEffect(() => {
+    if (!user) return;
+    setLoadError('');
+    return subscribeChats(user.uid, (c) => {
+      setChats(c);
+      setLoadError('');
+    }, setLoadError);
+  }, [user, key]);
 
   const shown = useMemo(() => {
     if (!user) return [];
@@ -67,7 +75,7 @@ export default function Chats() {
         data={shown}
         keyExtractor={(c) => c.id}
         contentContainerStyle={{ paddingHorizontal: 12, gap: 8, paddingBottom: 16 }}
-        ListEmptyComponent={<T style={{ textAlign: 'center', color: colors.muted, marginTop: 40 }}>{t('noChats')}</T>}
+        ListEmptyComponent={<T style={{ textAlign: 'center', color: loadError ? colors.danger : colors.muted, marginTop: 40, paddingHorizontal: 24 }}>{loadError ? `Chats could not load: ${loadError}. Pull down to try again.` : t('noChats')}</T>}
         renderItem={({ item }) => <ChatCard chat={item} me={me} other={item.type === 'group' ? undefined : people[otherOf(item)]} mine={profile} />}
       />
     </View>
