@@ -10,13 +10,13 @@ type Big = { icon: IconName; title: string; sub: string; dark?: boolean; tint?: 
 /** The + menu: Post, Reel, Story, Chat, then group, money and matola. */
 export default function CreateMenu() {
   const insets = useSafeAreaInsets();
-  const go = (path: '/new-story' | '/new-chat') => {
+  const go = (path: '/new-story' | '/new-chat' | '/create-post') => {
     router.back();
     router.push(path);
   };
 
   const tiles: Big[] = [
-    { icon: 'edit', title: 'Post', sub: 'Coming soon', dark: true },
+    { icon: 'edit', title: 'Post', sub: 'Text or poll', dark: true, go: () => go('/create-post') },
     { icon: 'reels', title: 'Reel', sub: 'Coming soon', tint: true },
     { icon: 'camera', title: 'Story', sub: 'Gone in 24 hours', go: () => go('/new-story') },
     { icon: 'chat', title: 'Chat', sub: 'Message a contact', go: () => go('/new-chat') },

@@ -167,3 +167,21 @@ test('blocked people cannot open your post or story directly', async () => {
   await assertFails(getDoc(doc(as(A), 'posts', 'p1')));
   await assertFails(getDoc(doc(as(A), 'stories', 's2')));
 });
+
+test('phase 2 app writes: post, poll, comment, follow both sides, block', async () => {
+  const { writeBatch, getCountFromServer } = await import('firebase/firestore');
+  const db = as(A);
+  const base = { uid: A, author: { name: 'Alice Banda', verified: false }, media: [], hashtags: ['mangochi'], visibility: 'everyone',
+    counts: { likes: 0, comments: 0, reposts: 0, views: 0, tips: 0 }, status: 'live', featured: false, createdAt: serverTimestamp() };
+  await assertSucceeds(addDoc(collection(db, 'posts'), { ...base, kind: 'post', text: 'Moni #Mangochi' }));
+  await assertSucceeds(addDoc(collection(db, 'posts'), { ...base, kind: 'poll', text: 'Which day?', poll: { options: ['Sat', 'Sun'], votes: [0, 0], endsAt: Timestamp.fromMillis(Date.now() + 86400_000) } }));
+  await assertSucceeds(addDoc(collection(db, 'posts', 'p1', 'comments'), { uid: A, name: 'Alice', text: 'Nice', likes: 0, status: 'live', createdAt: serverTimestamp() }));
+  await assertSucceeds(getCountFromServer(collection(db, 'posts', 'p1', 'likes')));
+  const b = writeBatch(db);
+  b.set(doc(db, 'users', B, 'followers', A), { createdAt: serverTimestamp() });
+  b.set(doc(db, 'users', A, 'following', B), { createdAt: serverTimestamp() });
+  await assertSucceeds(b.commit());
+  await assertSucceeds(setDoc(doc(db, 'users', A, 'blocks', EVE), { createdAt: serverTimestamp() }));
+  // Nobody can make someone else follow them.
+  await assertFails(setDoc(doc(db, 'users', A, 'followers', B), { createdAt: serverTimestamp() }));
+});

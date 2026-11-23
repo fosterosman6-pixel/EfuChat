@@ -9,6 +9,8 @@ export type UserProfile = {
   about?: string;
   photoURL?: string | null;
   lang?: 'ny' | 'en';
+  handle?: string;
+  town?: string;
   accountType?: 'personal' | 'creator' | 'business';
   verified?: boolean;
   plan?: 'free' | 'shop' | 'pro';
@@ -48,4 +50,44 @@ export type Story = {
   createdAt: Ts | null;
   expiresAt: Ts;
   viewers?: string[];
+};
+
+export type Post = {
+  id: string;
+  uid: string;
+  author: { name: string; handle?: string; verified: boolean };
+  kind: 'post' | 'reel' | 'poll';
+  text: string;
+  media: { path: string; type: 'image' | 'video' }[];
+  poll?: { options: string[]; votes: number[]; endsAt: Ts };
+  hashtags: string[];
+  town?: string;
+  counts: { likes: number; comments: number; reposts: number; views: number; tips: number };
+  status: 'live' | 'hidden' | 'removed';
+  featured: boolean;
+  sponsored?: { adId: string };
+  createdAt: Ts | null;
+};
+
+export type Comment = {
+  id: string;
+  uid: string;
+  name: string;
+  text: string;
+  parentId?: string;
+  likes: number;
+  status: 'live' | 'removed';
+  createdAt: Ts | null;
+};
+
+export type AppNotification = {
+  id: string;
+  type: 'like' | 'comment' | 'reply' | 'follow' | 'repost' | 'tip' | 'order' | 'delivery' | 'system';
+  actorUid?: string;
+  actorName?: string;
+  text: string;
+  targetPath?: string;
+  amount?: number;
+  read: boolean;
+  createdAt: Ts | null;
 };
