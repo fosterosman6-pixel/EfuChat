@@ -114,7 +114,9 @@ service cloud.firestore {
 
     // ---------- stories ----------
     match /stories/{id} {
-      allow read: if signedIn() && !blockedBy(resource.data.uid);
+      // Single reads check blocks; lists can't, so the app also hides blocked people.
+      allow get: if signedIn() && !blockedBy(resource.data.uid);
+      allow list: if signedIn();
       allow create: if active() && incoming().uid == me()
         && incoming().kind in ['text', 'image', 'video']
         && (!('text' in incoming()) || str(incoming().text, 280))
@@ -127,8 +129,9 @@ service cloud.firestore {
 
     // ---------- feed, reels, polls ----------
     match /posts/{postId} {
-      allow read: if signedIn() && (resource.data.status == 'live' || isMe(resource.data.uid) || isStaff())
+      allow get: if signedIn() && (resource.data.status == 'live' || isMe(resource.data.uid) || isStaff())
         && !blockedBy(resource.data.uid);
+      allow list: if signedIn() && (resource.data.status == 'live' || isMe(resource.data.uid) || isStaff());
       allow create: if active() && incoming().uid == me()
         && incoming().kind in ['post', 'reel', 'poll']
         && str(incoming().text, 2000)

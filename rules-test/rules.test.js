@@ -148,3 +148,22 @@ test('app flows: text story and new direct chat as the phase 1 app writes them',
     type: 'direct', members: [A, EVE], names: { [A]: 'Alice', [EVE]: 'Eve' }, unread: { [A]: 0, [EVE]: 0 }, updatedAt: serverTimestamp(),
   }));
 });
+
+test('lists: the home feed, a profile and the story ring can be loaded', async () => {
+  const { query, where, orderBy, limit, getDocs } = await import('firebase/firestore');
+  const db = as(A);
+  await assertSucceeds(getDocs(query(collection(db, 'posts'), where('status', '==', 'live'), orderBy('createdAt', 'desc'), limit(20))));
+  await assertSucceeds(getDocs(query(collection(db, 'posts'), where('uid', '==', B), where('status', '==', 'live'))));
+  await assertSucceeds(getDocs(query(collection(db, 'stories'), where('expiresAt', '>', Timestamp.now()))));
+  // Hidden posts stay out of everyone else's lists.
+  await assertFails(getDocs(query(collection(db, 'posts'), where('status', '==', 'hidden'))));
+});
+
+test('blocked people cannot open your post or story directly', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users', B, 'blocks', A), { at: Timestamp.now() });
+    await setDoc(doc(ctx.firestore(), 'stories', 's2'), { uid: B, viewers: [], expiresAt: Timestamp.fromMillis(Date.now() + 3600_000) });
+  });
+  await assertFails(getDoc(doc(as(A), 'posts', 'p1')));
+  await assertFails(getDoc(doc(as(A), 'stories', 's2')));
+});
