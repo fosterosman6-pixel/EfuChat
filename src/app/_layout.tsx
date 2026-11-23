@@ -9,6 +9,7 @@ import { router, Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
+import { AppLock } from '../components/AppLock';
 import { subscribeIncoming } from '../lib/calls';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LangProvider } from '../lib/i18n';
@@ -28,6 +29,7 @@ export default function RootLayout() {
           <SessionProvider>
             <Presence />
             <IncomingCalls />
+            <AppLock />
             <StatusBar style="light" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.surface100 } }}>
               <Stack.Screen name="create" options={{ presentation: 'transparentModal', animation: 'fade' }} />
@@ -44,7 +46,7 @@ export default function RootLayout() {
 
 function Presence() {
   const { profile } = useSession();
-  usePresence(profile?.uid);
+  usePresence(profile?.uid, profile?.privacy?.lastSeen === 'nobody');
   return null;
 }
 

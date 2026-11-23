@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, onSnapshot, query, serverTimestamp, updateDoc, where } from '@react-native-firebase/firestore';
+import { addDoc, collection, doc, getDoc, onSnapshot, query, serverTimestamp, updateDoc, where } from '@react-native-firebase/firestore';
 import { db } from './firebase';
 import type { Person } from './chats';
 
@@ -21,6 +21,10 @@ export const RING_MS = 45_000;
 
 /** Creates the call document; the Agora channel is named after its id. */
 export async function startCall(me: Person, other: Person, kind: Call['kind'] = 'voice') {
+  const them = await getDoc(doc(db, 'users', other.uid));
+  const who = (them.data()?.privacy?.calls as string | undefined) ?? 'everyone';
+  if (who === 'nobody') throw new Error(`${other.name.split(' ')[0]} is not taking calls.`);
+  if (who === 'chats' && !(await getDoc(doc(db, 'chats', [me.uid, other.uid].sort().join('_')))).exists()) throw new Error(`${other.name.split(' ')[0]} only takes calls from people they chat with.`);
   const ref = await addDoc(collection(db, 'calls'), {
     from: me.uid,
     to: other.uid,

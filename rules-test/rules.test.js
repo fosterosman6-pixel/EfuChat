@@ -237,3 +237,15 @@ test('calls: ring, answer, hang up; strangers and fakes refused', async () => {
   await assertSucceeds(setDoc(doc(as(A), 'calls', 'c2'), call));
   await assertSucceeds(updateDoc(doc(as(A), 'calls', 'c2'), { status: 'missed', endedAt: serverTimestamp() }));
 });
+
+test('privacy: own settings only; calls respect "nobody" and "people I chat with"', async () => {
+  await assertSucceeds(updateDoc(doc(as(B), 'users', B), { privacy: { lastSeen: 'nobody', readTicks: false, calls: 'nobody' } }));
+  await assertFails(updateDoc(doc(as(B), 'users', B), { privacy: { calls: 'all-my-fans' } }));
+  await assertFails(updateDoc(doc(as(A), 'users', B), { privacy: { calls: 'everyone' } }));
+  const call = { from: A, to: B, fromName: 'Alice', toName: 'Bob', kind: 'voice', status: 'ringing', createdAt: serverTimestamp() };
+  await assertFails(setDoc(doc(as(A), 'calls', 'p1'), call));
+  await assertSucceeds(updateDoc(doc(as(B), 'users', B), { privacy: { calls: 'chats' } }));
+  await assertSucceeds(setDoc(doc(as(A), 'calls', 'p2'), call)); // alice_bob chat exists
+  await assertSucceeds(setDoc(doc(as(B), 'handles', 'bob.banda'), { uid: B }));
+  await assertFails(setDoc(doc(as(A), 'handles', 'bob.banda'), { uid: A }));
+});

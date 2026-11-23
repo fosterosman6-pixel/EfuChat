@@ -33,8 +33,8 @@ export default function Calls() {
     try {
       const id = await startCall(profile, other);
       router.push({ pathname: '/call/[id]', params: { id } });
-    } catch {
-      Alert.alert('Could not call', 'Check your connection and try again.');
+    } catch (e) {
+      Alert.alert('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
     }
   }
 

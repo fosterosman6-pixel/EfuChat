@@ -36,6 +36,7 @@ import { db } from '../../lib/firebase';
 import { useLang } from '../../lib/i18n';
 import type { IconName } from '../../lib/icons';
 import { isOnline, presenceLabel } from '../../lib/presence';
+import { canSeePresence, ticksOn } from '../../lib/profile';
 import { useSession } from '../../lib/session';
 import { colors, fonts } from '../../lib/theme';
 import type { Chat, Message, ReplyRef, UserProfile } from '../../lib/types';
@@ -120,8 +121,8 @@ export default function Conversation() {
     try {
       const callId = await startCall(profile, { uid: otherId, name: chat.names[otherId] ?? 'EfuChat user' });
       router.push({ pathname: '/call/[id]', params: { id: callId } });
-    } catch {
-      Alert.alert('Could not call', 'Check your connection and try again.');
+    } catch (e) {
+      Alert.alert('Could not call', e instanceof Error && e.message.includes('call') ? e.message : 'Check your connection and try again.');
     }
   }
 
@@ -146,10 +147,10 @@ export default function Conversation() {
   } else if (isGroup) {
     sub = `${chat?.members.length ?? 0} members`;
   } else {
-    sub = presenceLabel(other);
+    sub = canSeePresence(other, profile, true) ? presenceLabel(other) : 'EfuChat';
   }
 
-  const readByAll = (m: Message) => others.every((o) => (chat?.unread?.[o] ?? 0) === 0) || (m.readBy?.length ?? 0) > others.length;
+  const readByAll = (m: Message) => (isGroup || ticksOn(other, profile)) && (others.every((o) => (chat?.unread?.[o] ?? 0) === 0) || (m.readBy?.length ?? 0) > others.length);
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.surface100 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -164,7 +165,7 @@ export default function Conversation() {
           >
             <View>
               <Avatar name={title || '?'} size={40} rounded={12} />
-              {!isGroup && isOnline(other) && <View style={dot} />}
+              {!isGroup && canSeePresence(other, profile, true) && isOnline(other) && <View style={dot} />}
             </View>
             <View style={{ flex: 1 }}>
               <T style={{ color: '#FFFFFF', fontFamily: fonts.bold, fontSize: 16 }} numberOfLines={1}>

@@ -9,6 +9,7 @@ import { isAdmin, leaveGroup, openDirectChat, removeGroupMember, setGroupAdmin, 
 import { db } from '../../lib/firebase';
 import type { IconName } from '../../lib/icons';
 import { isOnline, presenceLabel } from '../../lib/presence';
+import { canSeePresence } from '../../lib/profile';
 import { useSession } from '../../lib/session';
 import { colors, fonts } from '../../lib/theme';
 import type { Chat, UserProfile } from '../../lib/types';
@@ -145,8 +146,8 @@ export default function GroupInfo() {
           <PersonRow
             key={uid}
             name={uid === me ? 'You' : (chat.names[uid] ?? 'EfuChat user')}
-            sub={uid === me ? profile?.name : presenceLabel(users[uid])}
-            online={uid !== me && isOnline(users[uid])}
+            sub={uid === me ? profile?.name : canSeePresence(users[uid], profile, false) ? presenceLabel(users[uid]) : (users[uid]?.about ?? 'EfuChat')}
+            online={uid !== me && canSeePresence(users[uid], profile, false) && isOnline(users[uid])}
             onPress={uid === me ? undefined : () => memberMenu(uid)}
             right={isAdmin(chat, uid) ? <T style={{ fontSize: 11, fontFamily: fonts.extrabold, color: colors.lime600, backgroundColor: colors.lime100, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, overflow: 'hidden' }}>Admin</T> : <View />}
             last={i === members.length - 1}

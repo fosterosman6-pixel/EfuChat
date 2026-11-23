@@ -8,7 +8,8 @@ import { findUserByPhone, openDirectChat, type Person } from '../lib/chats';
 import { findUserByHandle, INVITE_TEXT, myDialCode, normalise, type PhoneContact } from '../lib/contacts';
 import type { IconName } from '../lib/icons';
 import { usePeople } from '../lib/people';
-import { isOnline } from '../lib/presence';
+import { isOnline as rawOnline } from '../lib/presence';
+import { canSeePresence } from '../lib/profile';
 import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
 import type { UserProfile } from '../lib/types';
@@ -17,6 +18,7 @@ const SOON = (what: string) => () => Alert.alert('Coming soon', `${what} is comi
 
 export default function NewChat() {
   const { user, profile } = useSession();
+  const isOnline = (u?: UserProfile | null) => !!u && canSeePresence(u, profile, false) && rawOnline(u);
   const insets = useSafeAreaInsets();
   const { recent, book, permission, loading, allow } = usePeople(true);
   const [q, setQ] = useState('');

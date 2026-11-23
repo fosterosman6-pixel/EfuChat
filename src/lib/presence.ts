@@ -8,9 +8,9 @@ const BEAT_MS = 60_000;
 const ONLINE_MS = 2.5 * 60_000;
 
 /** While the app is in the foreground, marks me as active once a minute. */
-export function usePresence(uid: string | undefined) {
+export function usePresence(uid: string | undefined, hidden = false) {
   useEffect(() => {
-    if (!uid) return;
+    if (!uid || hidden) return;
     const beat = () => {
       if (AppState.currentState === 'active') updateDoc(doc(db, 'users', uid), { lastActiveAt: serverTimestamp() }).catch(() => {});
     };
@@ -21,7 +21,7 @@ export function usePresence(uid: string | undefined) {
       clearInterval(timer);
       sub.remove();
     };
-  }, [uid]);
+  }, [uid, hidden]);
 }
 
 export function isOnline(u?: Pick<UserProfile, 'lastActiveAt'> | null) {

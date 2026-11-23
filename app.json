@@ -67,7 +67,8 @@
       "typedRoutes": false
     },
     "extra": {
-      "agoraAppId": ""
+      "agoraAppId": "",
+      "supportPhone": "+27612764714"
     }
   }
 }

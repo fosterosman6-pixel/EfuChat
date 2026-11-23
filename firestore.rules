@@ -37,7 +37,12 @@ service cloud.firestore {
         && incoming().walletLinked == false && incoming().status == 'active'
         && incoming().counts == { 'posts': 0, 'followers': 0, 'following': 0, 'sales': 0 };
       allow update: if isMe(uid)
-        && onlyChanges(['name', 'about', 'photoURL', 'town', 'lang', 'accountType', 'handle'])
+        && onlyChanges(['name', 'about', 'photoURL', 'town', 'lang', 'accountType', 'handle', 'privacy'])
+        && (!('privacy' in incoming()) || (incoming().privacy is map
+            && incoming().privacy.keys().hasOnly(['lastSeen', 'readTicks', 'calls'])
+            && incoming().privacy.get('lastSeen', 'everyone') in ['everyone', 'chats', 'nobody']
+            && incoming().privacy.get('calls', 'everyone') in ['everyone', 'chats', 'nobody']
+            && incoming().privacy.get('readTicks', true) is bool))
         && str(incoming().name, 60) && str(incoming().about, 140)
         && incoming().accountType in ['personal', 'creator', 'business'];
       allow update: if isMod() && onlyChanges(['status', 'verified']);
@@ -87,11 +92,17 @@ service cloud.firestore {
     }
 
     // ---------- calls (signalling only; audio goes through Agora) ----------
+    function callsAllowed(who, a, b) {
+      return who == 'everyone'
+        || (who == 'chats' && (exists(/databases/$(database)/documents/chats/$(a + '_' + b))
+                               || exists(/databases/$(database)/documents/chats/$(b + '_' + a))));
+    }
     match /calls/{callId} {
       allow get: if signedIn() && me() in [resource.data.from, resource.data.to];
       allow list: if signedIn() && (resource.data.to == me() || resource.data.from == me());
       allow create: if active() && incoming().from == me() && incoming().to != me()
         && userDoc(incoming().to).data.status == 'active' && !blockedBy(incoming().to)
+        && callsAllowed(userDoc(incoming().to).data.get('privacy', {}).get('calls', 'everyone'), incoming().from, incoming().to)
         && incoming().keys().hasOnly(['from', 'to', 'fromName', 'toName', 'kind', 'status', 'createdAt'])
         && incoming().status == 'ringing' && incoming().kind in ['voice', 'video']
         && incoming().createdAt == request.time && str(incoming().fromName, 60) && str(incoming().toName, 60);

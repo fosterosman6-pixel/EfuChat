@@ -17,9 +17,13 @@ export type UserProfile = {
   walletLinked?: boolean;
   status?: 'active' | 'under_review' | 'suspended' | 'banned';
   createdAt?: Ts;
+  privacy?: Privacy;
   /** written every minute while the app is open; drives online / last seen */
   lastActiveAt?: Ts;
 };
+
+export type Audience = 'everyone' | 'chats' | 'nobody';
+export type Privacy = { lastSeen?: Audience; readTicks?: boolean; calls?: Audience };
 
 export type Chat = {
   id: string;

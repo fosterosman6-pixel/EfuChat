@@ -51,7 +51,7 @@ export default function Me() {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}>
         <SectionLabel>YOU</SectionLabel>
         <Card>
-          <Row left={<Tile name="person" bg={colors.lime100} fg={colors.navy} />} title="Edit profile" subtitle="Coming soon" />
+          <Row left={<Tile name="person" bg={colors.lime100} fg={colors.navy} />} title="Edit profile" subtitle="Name, username, about and town" onPress={() => router.push('/edit-profile')} />
           <Row left={<Tile name="wallet" bg={colors.lime100} fg={colors.navy} />} title="Wallet" subtitle="Coming soon" />
           <Row left={<Tile name="store" bg={colors.lime100} fg={colors.navy} />} title="My shop and orders" subtitle="Coming soon" />
           <Row left={<Tile name="phone" bg={colors.lime100} fg={colors.navy} />} title="Calls" subtitle="Voice calls and missed calls" onPress={() => router.push('/calls')} last />
@@ -72,8 +72,8 @@ export default function Me() {
             right={chev}
             onPress={() => setLang(lang === 'ny' ? 'en' : 'ny')}
           />
-          <Row left={<Tile name="lock" bg={colors.surface100} fg={colors.navy} />} title="Privacy and security" subtitle="Coming soon" />
-          <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="Help" subtitle="Coming soon" last />
+          <Row left={<Tile name="lock" bg={colors.surface100} fg={colors.navy} />} title="Privacy and security" subtitle="Last seen, read ticks, calls, app lock" onPress={() => router.push('/privacy')} />
+          <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="Help" subtitle="Questions and support" onPress={() => router.push('/help')} last />
         </Card>
 
         <View style={{ height: 12 }} />
