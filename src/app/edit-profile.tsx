@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar, Button, Header, Icon, T } from '../components/ui';
+import { Avatar, Button, Header, Icon, T, ScaledTextInput } from '../components/ui';
 import * as ImagePicker from 'expo-image-picker';
 import { avatarDataUri } from '../lib/media';
 import { cleanHandle, handleStatus, saveProfile } from '../lib/profile';
@@ -179,7 +179,7 @@ function Field({
       <T style={label}>{l}</T>
       <View style={{ flexDirection: 'row', alignItems: multiline ? 'flex-start' : 'center', gap: 4, minHeight: multiline ? 76 : 50, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, borderRadius: 14, paddingHorizontal: 14 }}>
         {prefix && <T style={{ color: colors.muted, fontSize: 15 }}>{prefix}</T>}
-        <TextInput
+        <ScaledTextInput
           accessibilityLabel={l.toLowerCase()}
           value={value}
           onChangeText={onChange}

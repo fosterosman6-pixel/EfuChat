@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Header, Icon, T } from '../components/ui';
+import { Button, Header, Icon, T, ScaledTextInput } from '../components/ui';
 import { auth } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
 import { getPendingSignIn, setPendingSignIn } from '../lib/phone';
@@ -98,7 +98,7 @@ export default function Verify() {
             );
           })}
         </Pressable>
-        <TextInput
+        <ScaledTextInput
           ref={input}
           value={code}
           onChangeText={(v) => {

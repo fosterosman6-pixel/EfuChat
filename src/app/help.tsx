@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { getAuth } from '@react-native-firebase/auth';
 import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Card, Header, Icon, Row, SectionLabel, T, Tile } from '../components/ui';
+import { Card, Header, Icon, Row, SectionLabel, T, Tile, ScaledTextInput } from '../components/ui';
 import { findUserByPhone, openDirectChat } from '../lib/chats';
 import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
@@ -53,7 +53,7 @@ export default function Help() {
       <Header title="Help" onBack={() => router.back()} />
       <View style={{ margin: 12, marginBottom: 0, height: 48, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14 }}>
         <Icon name="search" color={colors.muted} size={18} />
-        <TextInput accessibilityLabel="Search help" value={q} onChangeText={setQ} placeholder="Search help" placeholderTextColor="#8A93A8" style={{ flex: 1, fontSize: 15, fontFamily: fonts.regular, color: colors.ink }} />
+        <ScaledTextInput accessibilityLabel="Search help" value={q} onChangeText={setQ} placeholder="Search help" placeholderTextColor="#8A93A8" style={{ flex: 1, fontSize: 15, fontFamily: fonts.regular, color: colors.ink }} />
       </View>
 
       <SectionLabel>{q ? 'RESULTS' : 'POPULAR'}</SectionLabel>

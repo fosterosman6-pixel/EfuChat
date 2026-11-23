@@ -2,6 +2,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 
 export type WallpaperName = 'plain' | 'chitenje' | 'lake' | 'night';
+export type TextSize = 'normal' | 'large' | 'xl';
+/** Normal is about WhatsApp size; the phone's own font setting still applies on top. */
+export const TEXT_SCALE: Record<TextSize, number> = { normal: 1.12, large: 1.26, xl: 1.42 };
 type Prefs = {
   dataSaver: boolean;
   setDataSaver: (on: boolean) => void;
@@ -10,6 +13,8 @@ type Prefs = {
   /** wallpaper for a chat: its own choice, else the one for all chats (Chitenje by default) */
   wallpaperFor: (chatId?: string) => WallpaperName;
   setWallpaper: (name: WallpaperName, chatId?: string) => void;
+  textSize: TextSize;
+  setTextSize: (s: TextSize) => void;
 };
 const PrefsContext = createContext<Prefs>({
   dataSaver: true,
@@ -18,10 +23,13 @@ const PrefsContext = createContext<Prefs>({
   setAppLock: () => {},
   wallpaperFor: () => 'chitenje',
   setWallpaper: () => {},
+  textSize: 'normal',
+  setTextSize: () => {},
 });
 const KEY = 'efuchat.dataSaver';
 const LOCK_KEY = 'efuchat.appLock';
 const WP_KEY = 'efuchat.wallpaper';
+const TS_KEY = 'efuchat.textSize';
 type WP = { all: WallpaperName; chats: Record<string, WallpaperName> };
 
 /** Data saver is on by default: smaller photos, media only on tap. */
@@ -29,9 +37,11 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
   const [dataSaver, setState] = useState(true);
   const [appLock, setLock] = useState(false);
   const [wp, setWp] = useState<WP>({ all: 'chitenje', chats: {} });
+  const [textSize, setTs] = useState<TextSize>('normal');
   useEffect(() => {
     AsyncStorage.getItem(KEY).then((v) => v !== null && setState(v === '1'));
     AsyncStorage.getItem(LOCK_KEY).then((v) => setLock(v === '1'));
+    AsyncStorage.getItem(TS_KEY).then((v) => (v === 'large' || v === 'xl' || v === 'normal') && setTs(v));
     AsyncStorage.getItem(WP_KEY).then((v) => {
       try {
         if (v) setWp({ all: 'chitenje', chats: {}, ...JSON.parse(v) });
@@ -55,9 +65,16 @@ export function PrefsProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
+  const setTextSize = useCallback((s: TextSize) => {
+    setTs(s);
+    AsyncStorage.setItem(TS_KEY, s);
+  }, []);
   return (
-    <PrefsContext.Provider value={{ dataSaver, setDataSaver, appLock, setAppLock, wallpaperFor, setWallpaper }}>{children}</PrefsContext.Provider>
+    <PrefsContext.Provider value={{ dataSaver, setDataSaver, appLock, setAppLock, wallpaperFor, setWallpaper, textSize, setTextSize }}>{children}</PrefsContext.Provider>
   );
 }
 
 export const usePrefs = () => useContext(PrefsContext);
+
+/** How much bigger text should be drawn, from the Text size setting. */
+export const useTextScale = () => TEXT_SCALE[useContext(PrefsContext).textSize];

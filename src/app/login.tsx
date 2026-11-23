@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LogoMark, Wordmark } from '../components/Logo';
-import { Button, Icon, T, styles as ui } from '../components/ui';
+import { Button, Icon, T, styles as ui, ScaledTextInput } from '../components/ui';
 import { auth } from '../lib/firebase';
 import { useLang } from '../lib/i18n';
 import { COUNTRIES, setPendingSignIn, toE164 } from '../lib/phone';
@@ -82,7 +82,7 @@ export default function Login() {
               <View style={[ui.input, { width: 76, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 0 }]}>
                 <T style={{ fontFamily: fonts.semibold }}>{country.dial}</T>
               </View>
-              <TextInput
+              <ScaledTextInput
                 accessibilityLabel="Phone number"
                 value={local}
                 onChangeText={setLocal}

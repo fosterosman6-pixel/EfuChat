@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar, Header, Icon, T } from '../components/ui';
+import { Avatar, Header, Icon, T, ScaledTextInput } from '../components/ui';
 import type { IconName } from '../lib/icons';
 import { createPost, hashtagsIn } from '../lib/posts';
 import { useSession } from '../lib/session';
@@ -65,7 +65,7 @@ export default function CreatePost() {
           </View>
         </View>
 
-        <TextInput
+        <ScaledTextInput
           accessibilityLabel="What's happening?"
           value={text}
           onChangeText={setText}
@@ -81,7 +81,7 @@ export default function CreatePost() {
         {poll && (
           <View style={{ gap: 8 }}>
             {poll.map((o, i) => (
-              <TextInput
+              <ScaledTextInput
                 key={i}
                 accessibilityLabel={`Poll option ${i + 1}`}
                 value={o}

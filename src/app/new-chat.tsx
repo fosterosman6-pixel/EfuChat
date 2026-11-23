@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, Share, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PersonRow } from '../components/PersonRow';
-import { Avatar, Button, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile } from '../components/ui';
+import { Avatar, Button, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile, ScaledTextInput } from '../components/ui';
 import { findUserByPhone, openDirectChat, type Person } from '../lib/chats';
 import { findUserByHandle, INVITE_TEXT, myDialCode, normalise, type PhoneContact } from '../lib/contacts';
 import type { IconName } from '../lib/icons';
@@ -84,7 +84,7 @@ export default function NewChat() {
       <Header title="New chat" subtitle={subtitle} onBack={() => router.back()}>
         <View style={{ marginTop: 10, marginHorizontal: 4, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.navy700, borderRadius: 14, paddingLeft: 12, height: 48 }}>
           <Icon name="search" color={colors.soft} size={18} />
-          <TextInput
+          <ScaledTextInput
             accessibilityLabel="Search name, @username or number"
             value={q}
             onChangeText={setQ}

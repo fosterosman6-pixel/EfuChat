@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PersonRow } from '../../components/PersonRow';
-import { Card, IconButton, Row, SectionLabel, T, Tile, Toggle } from '../../components/ui';
+import { Card, IconButton, Row, SectionLabel, T, Tile, Toggle, ScaledTextInput } from '../../components/ui';
 import { isAdmin, leaveGroup, openDirectChat, removeGroupMember, setGroupAdmin, subscribeChat, updateGroup } from '../../lib/chats';
 import { db } from '../../lib/firebase';
 import type { IconName } from '../../lib/icons';
@@ -103,7 +103,7 @@ export default function GroupInfo() {
         </View>
         <Tile name="group" bg={colors.lime} fg={colors.navy} size={76} />
         {editing ? (
-          <TextInput
+          <ScaledTextInput
             accessibilityLabel="Group name"
             value={name}
             onChangeText={setName}

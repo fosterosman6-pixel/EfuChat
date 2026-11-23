@@ -2,13 +2,15 @@ import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Share, Text, View } from 'react-native';
 import { ago, deletePost, isLiked, liveCounts, myVote, setLiked, vote } from '../lib/posts';
+import { useTextScale } from '../lib/prefs';
 import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
 import type { Post } from '../lib/types';
 import { Avatar, Icon, T } from './ui';
 
 /** Text with #hashtags in lime green; tapping one opens Explore for that tag. */
-export function RichText({ text, size = 15 }: { text: string; size?: number }) {
+export function RichText({ text, size: base = 15 }: { text: string; size?: number }) {
+  const size = Math.round(base * useTextScale());
   const parts = text.split(/(#[\p{L}\p{N}_]+)/u);
   return (
     <Text style={{ fontFamily: fonts.regular, fontSize: size, lineHeight: size * 1.45, color: colors.ink }}>

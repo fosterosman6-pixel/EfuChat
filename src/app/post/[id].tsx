@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PostCard } from '../../components/PostCard';
-import { Avatar, Header, Icon, T } from '../../components/ui';
+import { Avatar, Header, Icon, T, ScaledTextInput } from '../../components/ui';
 import { addComment, ago, deleteComment, subscribeComments, subscribePost } from '../../lib/posts';
 import { useSession } from '../../lib/session';
 import { colors, fonts } from '../../lib/theme';
@@ -82,7 +82,7 @@ export default function PostScreen() {
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Avatar name={profile?.name ?? 'Me'} size={40} rounded={12} />
-            <TextInput
+            <ScaledTextInput
               accessibilityLabel="Write a comment"
               value={text}
               onChangeText={setText}

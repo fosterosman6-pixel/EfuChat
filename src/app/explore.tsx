@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { FlatList, Pressable, TextInput, View } from 'react-native';
 import { PostCard } from '../components/PostCard';
-import { Avatar, Card, Header, Icon, IconButton, Row, SectionLabel, T } from '../components/ui';
+import { Avatar, Card, Header, Icon, IconButton, Row, SectionLabel, T, ScaledTextInput } from '../components/ui';
 import { findUserByPhone } from '../lib/chats';
 import { db } from '../lib/firebase';
 import { COUNTRIES, toE164 } from '../lib/phone';
@@ -67,7 +67,7 @@ export default function Explore() {
           <IconButton name="back" label="Back" onPress={() => router.back()} />
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.navy700, borderRadius: 14, paddingHorizontal: 12, height: 46, marginRight: 4 }}>
             <Icon name="search" color={colors.soft} size={18} />
-            <TextInput
+            <ScaledTextInput
               accessibilityLabel="Search"
               value={q}
               onChangeText={setQ}

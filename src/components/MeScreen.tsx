@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { signOut } from '@react-native-firebase/auth';
 import { unregisterPush } from '../lib/push';
 import { router } from 'expo-router';
-import { Alert, ScrollView, View } from 'react-native';
+import { Alert, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WallpaperPicker, WALLPAPERS } from './Wallpaper';
 import { Avatar, Card, Header, Icon, IconButton, Row, SectionLabel, T, Tile, Toggle } from './ui';
@@ -17,7 +17,8 @@ const chev = <Icon name="chev" color={colors.muted} size={18} />;
 export function MeScreen({ tab = false }: { tab?: boolean }) {
   const { profile, user } = useSession();
   const { lang, setLang } = useLang();
-  const { dataSaver, setDataSaver, wallpaperFor } = usePrefs();
+  const { dataSaver, setDataSaver, wallpaperFor, textSize, setTextSize } = usePrefs();
+  const [tsOpen, setTsOpen] = useState(false);
   const [wp, setWp] = useState(false);
   const insets = useSafeAreaInsets();
 
@@ -77,6 +78,13 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
             right={chev}
             onPress={() => setLang(lang === 'ny' ? 'en' : 'ny')}
           />
+          <Row
+            left={<Tile name="text" bg={colors.surface100} fg={colors.navy} />}
+            title="Text size"
+            subtitle={textSize === 'xl' ? 'Extra large' : textSize === 'large' ? 'Large' : 'Normal'}
+            right={chev}
+            onPress={() => setTsOpen(true)}
+          />
           <Row left={<Tile name="palette" bg={colors.surface100} fg={colors.navy} />} title="Chat wallpaper" subtitle={WALLPAPERS.find((w) => w.name === wallpaperFor())?.label} right={chev} onPress={() => setWp(true)} />
           <Row left={<Tile name="lock" bg={colors.surface100} fg={colors.navy} />} title="Privacy and security" subtitle="Last seen, read ticks, calls, app lock" onPress={() => router.push('/privacy')} />
           <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="Help" subtitle="Questions and support" onPress={() => router.push('/help')} last />
@@ -88,6 +96,34 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
         </Card>
       </ScrollView>
       <WallpaperPicker visible={wp} onClose={() => setWp(false)} />
+      <Modal visible={tsOpen} transparent animationType="slide" onRequestClose={() => setTsOpen(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(10,34,83,0.45)' }} onPress={() => setTsOpen(false)} accessibilityLabel="Close" />
+        <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 32, gap: 16 }}>
+          <T style={{ fontFamily: fonts.bold, fontSize: 18 }}>Text size</T>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {(['normal', 'large', 'xl'] as const).map((s) => {
+              const on = textSize === s;
+              const label = s === 'xl' ? 'Extra large' : s === 'large' ? 'Large' : 'Normal';
+              return (
+                <Pressable
+                  key={s}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  accessibilityLabel={label}
+                  onPress={() => setTextSize(s)}
+                  style={{ flex: 1, alignItems: 'center', gap: 8 }}
+                >
+                  <View style={{ alignSelf: 'stretch', height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: on ? colors.navy : '#FFFFFF', borderWidth: on ? 0 : 1, borderColor: colors.line }}>
+                    <Text style={{ fontFamily: fonts.extrabold, fontSize: s === 'xl' ? 30 : s === 'large' ? 25 : 20, color: on ? '#FFFFFF' : colors.ink }}>Aa</Text>
+                  </View>
+                  <T style={{ fontSize: 13, fontFamily: on ? fonts.bold : fonts.regular }}>{label}</T>
+                </Pressable>
+              );
+            })}
+          </View>
+          <T style={{ fontSize: 13, color: colors.muted }}>Your phone's own font size setting still applies on top.</T>
+        </View>
+      </Modal>
     </View>
   );
 }

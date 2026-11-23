@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { ICONS, IconName } from '../lib/icons';
+import { useTextScale } from '../lib/prefs';
 import { avatarColors, colors, fonts, initialsOf, radius } from '../lib/theme';
 
 export function Icon({ name, color = colors.navy, size = 22 }: { name: IconName; color?: string; size?: number }) {
@@ -30,9 +31,17 @@ export function Icon({ name, color = colors.navy, size = 22 }: { name: IconName;
   );
 }
 
+/** Grows fontSize and lineHeight by the Text size setting. */
+export function scaleText(style: StyleProp<TextStyle>, k: number, base = 15): TextStyle {
+  const s = (StyleSheet.flatten(style) ?? {}) as TextStyle;
+  const fontSize = Math.round((s.fontSize ?? base) * k);
+  return { ...s, fontSize, ...(s.lineHeight ? { lineHeight: Math.round(s.lineHeight * k) } : {}) };
+}
+
 export function T({ style, children, numberOfLines }: { style?: StyleProp<TextStyle>; children: ReactNode; numberOfLines?: number }) {
+  const k = useTextScale();
   return (
-    <Text style={[{ fontFamily: fonts.regular, color: colors.ink, fontSize: 15 }, style]} numberOfLines={numberOfLines}>
+    <Text maxFontSizeMultiplier={2} style={scaleText([{ fontFamily: fonts.regular, color: colors.ink, fontSize: 15 }, style], k)} numberOfLines={numberOfLines}>
       {children}
     </Text>
   );
@@ -43,7 +52,7 @@ export function IconButton({
   label,
   onPress,
   color = '#FFFFFF',
-  size = 22,
+  size = 24,
 }: {
   name: IconName;
   label: string;
@@ -137,7 +146,7 @@ export function Button({
       ) : (
         <>
           {icon && <Icon name={icon} color={fg} size={20} />}
-          <Text style={{ color: fg, fontFamily: fonts.extrabold, fontSize: 16 }}>{title}</Text>
+          <T style={{ color: fg, fontFamily: fonts.extrabold, fontSize: 16 }}>{title}</T>
         </>
       )}
     </Pressable>
@@ -148,7 +157,7 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   return (
     <View style={{ gap: 6 }}>
       <T style={styles.label}>{label}</T>
-      <TextInput accessibilityLabel={label} placeholderTextColor="#8A93A8" {...props} style={[styles.input, props.style]} />
+      <ScaledTextInput accessibilityLabel={label} placeholderTextColor="#8A93A8" {...props} style={[styles.input, props.style]} />
     </View>
   );
 }
@@ -198,7 +207,7 @@ export function Row({
   );
 }
 
-export function Tile({ name, bg, fg, size = 38 }: { name: IconName; bg: string; fg: string; size?: number }) {
+export function Tile({ name, bg, fg, size = 44 }: { name: IconName; bg: string; fg: string; size?: number }) {
   return (
     <View style={{ width: size, height: size, borderRadius: size * 0.27, backgroundColor: bg, alignItems: 'center', justifyContent: 'center' }}>
       <Icon name={name} color={fg} size={size * 0.52} />
@@ -232,7 +241,7 @@ export function Chip({ label, active, onPress }: { label: string; active?: boole
 }
 
 export const styles = StyleSheet.create({
-  iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  iconBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   header: {
     backgroundColor: colors.navy,
     borderBottomLeftRadius: radius.xl,
@@ -270,3 +279,9 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+/** A TextInput that follows the Text size setting. (React 19: ref is passed as a normal prop.) */
+export function ScaledTextInput(props: React.ComponentProps<typeof TextInput>) {
+  const k = useTextScale();
+  return <TextInput maxFontSizeMultiplier={2} {...props} style={scaleText([{ fontFamily: fonts.regular, color: colors.ink, fontSize: 15 }, props.style], k, 15)} />;
+}

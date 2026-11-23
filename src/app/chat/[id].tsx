@@ -18,7 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PhotoContent, VoiceContent } from '../../components/MediaBubble';
-import { Avatar, Header, Icon, IconButton, T } from '../../components/ui';
+import { Avatar, Header, Icon, IconButton, T, ScaledTextInput } from '../../components/ui';
 import {
   chatTitle,
   deleteForEveryone,
@@ -328,7 +328,7 @@ export default function Conversation() {
                 paddingLeft: 14,
               }}
             >
-              <TextInput
+              <ScaledTextInput
                 ref={input}
                 accessibilityLabel="Message"
                 value={text}

@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, IconButton, T } from '../components/ui';
+import { Icon, IconButton, T, ScaledTextInput } from '../components/ui';
 import { subscribeChat } from '../lib/chats';
 import { sendPhoto } from '../lib/media';
 import { useSession } from '../lib/session';
@@ -78,7 +78,7 @@ export default function SendPhotos() {
         <T style={{ color: colors.soft, fontSize: 12 }}>Sent smaller to save data · about 150–250 KB each</T>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, paddingBottom: insets.bottom + 12 }}>
-        <TextInput
+        <ScaledTextInput
           accessibilityLabel="Caption"
           value={caption}
           onChangeText={(v) => setCaption(v.slice(0, 1000))}

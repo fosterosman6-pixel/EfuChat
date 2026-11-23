@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar, Button, Card, Header, Icon, Row, SectionLabel, T, Tile, Toggle } from '../components/ui';
+import { Avatar, Button, Card, Header, Icon, Row, SectionLabel, T, Tile, Toggle, ScaledTextInput } from '../components/ui';
 import { addGroupMembers, createGroup, subscribeChat, type Person } from '../lib/chats';
 import { usePeople } from '../lib/people';
 import { useSession } from '../lib/session';
@@ -89,7 +89,7 @@ export default function NewGroup() {
             <T style={{ fontSize: 13, color: colors.muted }}>Add group photo</T>
           </View>
           <View style={{ paddingHorizontal: 12, paddingTop: 16, gap: 4 }}>
-            <TextInput
+            <ScaledTextInput
               accessibilityLabel="Group name"
               value={name}
               onChangeText={(v) => setName(v.slice(0, 50))}
@@ -142,7 +142,7 @@ export default function NewGroup() {
         )}
         <View style={{ margin: 12, marginBottom: 0, height: 46, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12 }}>
           <Icon name="search" color={colors.muted} size={18} />
-          <TextInput accessibilityLabel="Search people" value={q} onChangeText={setQ} placeholder="Search name" placeholderTextColor="#8A93A8" style={{ flex: 1, fontSize: 15, fontFamily: fonts.regular, color: colors.ink }} />
+          <ScaledTextInput accessibilityLabel="Search people" value={q} onChangeText={setQ} placeholder="Search name" placeholderTextColor="#8A93A8" style={{ flex: 1, fontSize: 15, fontFamily: fonts.regular, color: colors.ink }} />
         </View>
         <SectionLabel>ON EFUCHAT</SectionLabel>
         {loading && !people.length ? (

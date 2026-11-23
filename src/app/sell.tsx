@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, KeyboardAvoidingView, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Button, Header, Icon, T, Tile } from '../components/ui';
+import { Button, Header, Icon, T, Tile, ScaledTextInput } from '../components/ui';
 import { CATEGORIES, createListing, type Category, type Condition } from '../lib/market';
 import { useSession } from '../lib/session';
 import { colors, fonts } from '../lib/theme';
@@ -134,7 +134,7 @@ function Input({ label: l, value, onChange, placeholder, numeric, multiline }: {
   return (
     <View style={{ gap: 8 }}>
       <T style={label}>{l}</T>
-      <TextInput
+      <ScaledTextInput
         accessibilityLabel={l.toLowerCase()}
         value={value}
         onChangeText={onChange}

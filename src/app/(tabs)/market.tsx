@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, RefreshControl, ScrollView, TextInput, View } from 'react-native';
 import { useRefresh } from '../../lib/useRefresh';
-import { Header, Icon, IconButton, T } from '../../components/ui';
+import { Header, Icon, IconButton, T, ScaledTextInput } from '../../components/ui';
 import { CATEGORIES, mwk, subscribeListings, type Category, type Listing } from '../../lib/market';
 import { useSession } from '../../lib/session';
 import { colors, fonts } from '../../lib/theme';
@@ -52,7 +52,7 @@ export default function Market() {
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10, marginHorizontal: 4 }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.navy700, borderRadius: 14, paddingHorizontal: 12, height: 46 }}>
             <Icon name="search" color={colors.soft} size={18} />
-            <TextInput accessibilityLabel="Search the market" value={q} onChangeText={setQ} placeholder="Search the market" placeholderTextColor={colors.soft} style={{ flex: 1, color: '#FFFFFF', fontSize: 15, fontFamily: fonts.regular }} />
+            <ScaledTextInput accessibilityLabel="Search the market" value={q} onChangeText={setQ} placeholder="Search the market" placeholderTextColor={colors.soft} style={{ flex: 1, color: '#FFFFFF', fontSize: 15, fontFamily: fonts.regular }} />
           </View>
           <Pressable
             accessibilityRole="button"

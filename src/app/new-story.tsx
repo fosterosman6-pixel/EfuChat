@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Pressable, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon, IconButton, T } from '../components/ui';
+import { Icon, IconButton, T, ScaledTextInput } from '../components/ui';
 import { useSession } from '../lib/session';
 import { postTextStory, STORY_BACKGROUNDS, storyTextColor } from '../lib/stories';
 import { colors, fonts } from '../lib/theme';
@@ -33,7 +33,7 @@ export default function NewStory() {
       </View>
 
       <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
-        <TextInput
+        <ScaledTextInput
           accessibilityLabel="Story text"
           value={text}
           onChangeText={setText}
