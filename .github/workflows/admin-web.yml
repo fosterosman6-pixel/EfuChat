@@ -66,5 +66,32 @@ jobs:
         run: npm --prefix admin ci && npm --prefix admin run build
       - name: Deploy to Firebase Hosting
         run: npx --yes firebase-tools@15 deploy --only hosting --project "$PROJECT" --non-interactive
+      - name: Set up the short address
+        id: short
+        run: |
+          FB="npx --yes firebase-tools@15"
+          SITE=""
+          for NAME in efuchat-admin efuchatadmin efuchat-admin-mw efuchat-mw-admin; do
+            if $FB hosting:sites:get "$NAME" --project "$PROJECT" >/dev/null 2>&1 || \
+               $FB hosting:sites:create "$NAME" --project "$PROJECT" --non-interactive >/dev/null 2>&1; then
+              SITE=$NAME; break
+            fi
+          done
+          [ -n "$SITE" ] || { echo "::error::No short address was free"; exit 1; }
+          echo "site=$SITE" >> "$GITHUB_OUTPUT"
+          # Let Google sign-in work on the short address.
+          TOKEN=$(gcloud auth print-access-token)
+          API="https://identitytoolkit.googleapis.com/admin/v2/projects/$PROJECT/config"
+          H=(-H "Authorization: Bearer $TOKEN" -H "x-goog-user-project: $PROJECT" -H "Content-Type: application/json")
+          BODY=$(curl -s "${H[@]}" "$API" | SITE="$SITE" node -e '
+            const c=JSON.parse(require("fs").readFileSync(0)); const d=new Set(c.authorizedDomains||[]);
+            d.add(process.env.SITE+".web.app"); d.add(process.env.SITE+".firebaseapp.com");
+            process.stdout.write(JSON.stringify({authorizedDomains:[...d]}));')
+          curl -s -X PATCH "${H[@]}" "$API?updateMask=authorizedDomains" -d "$BODY" | node -e 'const c=JSON.parse(require("fs").readFileSync(0)); if(c.error){console.error(JSON.stringify(c.error));process.exit(1)} console.log("Authorized domains:", c.authorizedDomains.join(", "))'
+          # Deploy the same build to the short address.
+          node -e 'const f=JSON.parse(require("fs").readFileSync("firebase.json"));require("fs").writeFileSync("firebase.short.json",JSON.stringify({hosting:{...f.hosting,site:process.argv[1]}}))' "$SITE"
+          $FB deploy --only hosting --config firebase.short.json --project "$PROJECT" --non-interactive
       - name: Address
-        run: echo "Admin panel is live at https://$PROJECT.web.app" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          echo "Admin panel is live at https://${{ steps.short.outputs.site }}.web.app" >> "$GITHUB_STEP_SUMMARY"
+          echo "(also https://$PROJECT.web.app)" >> "$GITHUB_STEP_SUMMARY"
