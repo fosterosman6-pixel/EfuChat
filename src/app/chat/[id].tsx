@@ -442,7 +442,9 @@ export default function Conversation() {
           {replyTo && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 8, padding: 8, backgroundColor: '#FFFFFF', borderTopLeftRadius: 16, borderTopRightRadius: 16, borderWidth: 1, borderBottomWidth: 0, borderColor: colors.line }}>
               <Icon name="reply" color={colors.lime600} size={18} />
-              <Quote reply={replyTo} mine={false} />
+              <View style={{ flex: 1 }}>
+                <Quote reply={replyTo} mine={false} />
+              </View>
               <IconButton name="close" label="Cancel reply" color={colors.muted} size={18} onPress={() => setReplyTo(null)} />
             </View>
           )}
@@ -668,9 +670,11 @@ function Ticks({ read }: { read: boolean }) {
   );
 }
 
+/** The quoted message in a reply. It never stretches: inside the message list a stretching box
+ *  grew to the height of the screen and pushed every other message out of sight. */
 function Quote({ reply, mine }: { reply: ReplyRef; mine: boolean }) {
   return (
-    <View style={{ flex: 1, borderLeftWidth: 3, borderLeftColor: mine ? colors.lime600 : colors.navy, backgroundColor: mine ? '#DCEFAE' : colors.surface100, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8 }}>
+    <View style={{ alignSelf: 'stretch', borderLeftWidth: 3, borderLeftColor: mine ? colors.lime600 : colors.navy, backgroundColor: mine ? '#DCEFAE' : colors.surface100, borderRadius: 8, paddingVertical: 4, paddingHorizontal: 8 }}>
       <T style={{ fontSize: 12, fontFamily: fonts.bold, color: mine ? colors.lime600 : colors.navy }}>{reply.name}</T>
       <T style={{ fontSize: 13, color: colors.muted }} numberOfLines={2}>
         {reply.text}
