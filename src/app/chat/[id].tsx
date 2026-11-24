@@ -5,6 +5,7 @@ import { doc, onSnapshot } from '@react-native-firebase/firestore';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  ActivityIndicator,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -17,7 +18,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { PhotoContent, VoiceContent } from '../../components/MediaBubble';
+import { AudioContent, ContactContent, FileContent, LocationContent, PhotoContent, VideoContent, VoiceContent } from '../../components/MediaBubble';
 import { Avatar, Header, Icon, IconButton, T, ScaledTextInput } from '../../components/ui';
 import {
   chatTitle,
@@ -31,12 +32,16 @@ import {
   subscribeChat,
   subscribeMessages,
   whoIsTyping,
+  findUserByPhone,
+  openDirectChat,
+  postMessage,
 } from '../../lib/chats';
 import { callLabel, startCall } from '../../lib/calls';
 import { usePrefs } from '../../lib/prefs';
 import { WallpaperFill, WallpaperPicker } from '../../components/Wallpaper';
 import { db } from '../../lib/firebase';
-import { sendVoice } from '../../lib/media';
+import { fileSize, MAX_FILE_BYTES, sendFile, sendVoice, videoThumb, type PickedFile } from '../../lib/media';
+import { getAuth } from '@react-native-firebase/auth';
 import { useVoiceRecorder } from '../../lib/useVoiceRecorder';
 import * as ImagePicker from 'expo-image-picker';
 import { useLang } from '../../lib/i18n';
@@ -51,7 +56,7 @@ const QUICK = ['Zikomo', 'Ndafika!', 'Ok'];
 const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const TYPING_EVERY_MS = 4000;
 const PREVIEW = (m: Message) =>
-  m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.type === 'call' && m.call ? `📞 ${m.call.kind === 'video' ? 'Video' : 'Voice'} call` : m.text;
+  m.type === 'document' ? `📄 ${m.media?.name ?? 'Document'}` : m.type === 'video' ? '🎥 Video' : m.type === 'audio' ? `🎵 ${m.media?.name ?? 'Audio'}` : m.type === 'location' ? '📍 Location' : m.type === 'contact' ? `👤 ${m.contact?.name ?? 'Contact'}` : m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.type === 'call' && m.call ? `📞 ${m.call.kind === 'video' ? 'Video' : 'Voice'} call` : m.text;
 
 export default function Conversation() {
   const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
@@ -64,6 +69,8 @@ export default function Conversation() {
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [selected, setSelected] = useState<Message | null>(null);
   const [infoFor, setInfoFor] = useState<Message | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sending, setSending] = useState('');
   const [menu, setMenu] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
   const { wallpaperFor } = usePrefs();
@@ -170,6 +177,73 @@ export default function Conversation() {
         : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, selectionLimit: 4, quality: 0.8 });
     if (res.canceled || !res.assets.length) return;
     router.push({ pathname: '/send-photos', params: { chatId: chat.id, uris: JSON.stringify(res.assets.map((a) => a.uri)), to: title } });
+  }
+
+  // ---------- documents, videos, audio, location, contact ----------
+  async function sendPicked(kind: 'file' | 'video' | 'audio', f: PickedFile) {
+    if (!chat) return;
+    if (f.size && f.size > MAX_FILE_BYTES) return dialog('File too big', `This file is ${fileSize(f.size)}. The most you can send is 16 MB.`);
+    setSending(kind === 'video' ? 'Sending video…' : kind === 'audio' ? 'Sending audio…' : 'Sending document…');
+    try {
+      const extra = kind === 'video' ? await videoThumb(f.uri) : undefined;
+      await sendFile(chat, me, kind, { ...f, ...extra });
+    } catch (e) {
+      dialog('Not sent', e instanceof Error ? e.message : 'Check your connection and try again.');
+    } finally {
+      setSending('');
+    }
+  }
+  async function pickDocument(kind: 'file' | 'audio') {
+    const DocumentPicker = await import('expo-document-picker');
+    const r = await DocumentPicker.getDocumentAsync({ type: kind === 'audio' ? 'audio/*' : '*/*', copyToCacheDirectory: true, multiple: false });
+    if (r.canceled || !r.assets?.[0]) return;
+    const a = r.assets[0];
+    await sendPicked(kind, { uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/octet-stream', size: a.size });
+  }
+  async function pickVideo(source: 'camera' | 'gallery') {
+    const perm = source === 'camera' ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return dialog('Permission needed', source === 'camera' ? 'Allow the camera to record videos.' : 'Allow photos and videos to share them.');
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['videos'], videoMaxDuration: 180, videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium };
+    const r = source === 'camera' ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
+    if (r.canceled || !r.assets[0]) return;
+    const a = r.assets[0];
+    await sendPicked('video', { uri: a.uri, name: a.fileName ?? `video-${Date.now()}.mp4`, mime: a.mimeType ?? 'video/mp4', size: a.fileSize, dur: a.duration ? a.duration / 1000 : undefined, w: a.width, h: a.height });
+  }
+  async function shareLocation() {
+    if (!chat) return;
+    const Location = await import('expo-location');
+    const perm = await Location.requestForegroundPermissionsAsync();
+    if (!perm.granted) return dialog('Location needed', 'Allow location to share where you are.');
+    setSending('Finding your location…');
+    try {
+      const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      await postMessage(chat, me, { type: 'location', text: '', location: { lat: p.coords.latitude, lng: p.coords.longitude } }, '📍 Location');
+    } catch {
+      dialog('Could not share location', 'Make sure location is on and try again.');
+    } finally {
+      setSending('');
+    }
+  }
+  async function shareContact() {
+    if (!chat) return;
+    const Contacts = await import('expo-contacts/legacy');
+    const perm = await Contacts.requestPermissionsAsync();
+    if (!perm.granted) return dialog('Contacts needed', 'Allow contacts to share one.');
+    const c = await Contacts.presentContactPickerAsync().catch(() => null);
+    const phone = c?.phoneNumbers?.[0]?.number;
+    if (!c || !phone) return c ? dialog('No phone number', 'That contact has no phone number.') : undefined;
+    await postMessage(chat, me, { type: 'contact', text: '', contact: { name: (c.name || phone).slice(0, 80), phone: phone.slice(0, 30) } }, `👤 ${(c.name || phone).slice(0, 60)}`).catch(() => dialog('Not sent', 'Try again.'));
+  }
+  async function messageContact(phone: string, name: string) {
+    if (!profile) return;
+    const digits = phone.replace(/[^\d+]/g, '');
+    const mine = getAuth().currentUser?.phoneNumber ?? '';
+    const cc = mine.startsWith('+27') ? '+27' : '+265';
+    const e164 = digits.startsWith('+') ? digits : digits.startsWith('00') ? `+${digits.slice(2)}` : digits.startsWith('0') ? `${cc}${digits.slice(1)}` : `+${digits}`;
+    const u = await findUserByPhone(e164).catch(() => null);
+    if (!u) return dialog(`${name} isn't on EfuChat yet`, 'Invite them to EfuChat, or call them.');
+    const cid = await openDirectChat(profile, u);
+    router.push({ pathname: '/chat/[id]', params: { id: cid } });
   }
 
   // ---------- voice notes: hold the mic, slide left to cancel, slide up to lock ----------
@@ -344,6 +418,7 @@ export default function Conversation() {
                   onLongPress={() => !item.deleted && setSelected(item)}
                   onReply={() => startReply(item)}
                   onReact={(e) => chat && react(chat.id, item.id, me, item.reactions?.[me] === e ? null : e).catch(() => {})}
+                  onContact={messageContact}
                 />
               )}
             </View>
@@ -403,13 +478,7 @@ export default function Conversation() {
                 name="plus"
                 label="Share"
                 color={colors.muted}
-                onPress={() =>
-                  dialog('Share', undefined, [
-                    { text: 'Photos from gallery', onPress: () => pickPhotos('gallery') },
-                    { text: 'Take a photo', onPress: () => pickPhotos('camera') },
-                    { text: 'Cancel', style: 'cancel' },
-                  ])
-                }
+                onPress={() => setShareOpen(true)}
               />
             </View>
             {text.trim() ? (
@@ -529,6 +598,60 @@ export default function Conversation() {
       </Modal>
       <WallpaperPicker visible={wpOpen} chatId={chat?.id ?? id} onClose={() => setWpOpen(false)} />
       {infoFor && chat && <MessageInfo chat={chat} msg={infoFor} me={me} onClose={() => setInfoFor(null)} />}
+      {!!sending && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 90, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 999, backgroundColor: colors.navy, zIndex: 30, elevation: 30 }}>
+          <ActivityIndicator color={colors.lime} size="small" />
+          <T style={{ color: '#FFFFFF', fontFamily: fonts.bold }}>{sending}</T>
+        </View>
+      )}
+      <Modal visible={shareOpen} transparent animationType="slide" onRequestClose={() => setShareOpen(false)}>
+        <Pressable accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(10,34,83,0.45)' }} onPress={() => setShareOpen(false)} />
+        <View style={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 12, paddingBottom: insets.bottom + 20, gap: 16 }}>
+          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line }} />
+          <T style={{ fontFamily: fonts.extrabold, fontSize: 19, paddingHorizontal: 6 }}>Share</T>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', rowGap: 18 }}>
+            {(
+              [
+                { icon: 'image', label: 'Photos', bg: '#E8F0FB', fg: '#2F5D8A', run: () => pickPhotos('gallery') },
+                { icon: 'camera', label: 'Camera', bg: colors.lime100, fg: colors.lime600, run: () => pickPhotos('camera') },
+                {
+                  icon: 'video',
+                  label: 'Video',
+                  bg: '#FDECEA',
+                  fg: '#B3261E',
+                  run: () =>
+                    dialog('Video', undefined, [
+                      { text: 'Choose from gallery', onPress: () => pickVideo('gallery') },
+                      { text: 'Record a video', onPress: () => pickVideo('camera') },
+                      { text: 'Cancel', style: 'cancel' },
+                    ]),
+                },
+                { icon: 'doc', label: 'Document', bg: colors.surface100, fg: colors.navy, run: () => pickDocument('file') },
+                { icon: 'music', label: 'Audio', bg: '#F5ECFA', fg: '#7B3FA0', run: () => pickDocument('audio') },
+                { icon: 'pin', label: 'Location', bg: '#EAF6EE', fg: '#1F7A45', run: shareLocation },
+                { icon: 'person', label: 'Contact', bg: '#FFF4D6', fg: '#8A5A00', run: shareContact },
+              ] as { icon: IconName; label: string; bg: string; fg: string; run: () => void }[]
+            ).map((o) => (
+              <Pressable
+                key={o.label}
+                accessibilityRole="button"
+                accessibilityLabel={o.label}
+                onPress={() => {
+                  setShareOpen(false);
+                  setTimeout(o.run, 250);
+                }}
+                style={{ width: '25%', alignItems: 'center', gap: 8 }}
+              >
+                <View style={{ width: 60, height: 60, borderRadius: 20, backgroundColor: o.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={o.icon} color={o.fg} size={28} />
+                </View>
+                <T style={{ fontSize: 13, fontFamily: fonts.bold, textAlign: 'center' }}>{o.label}</T>
+              </Pressable>
+            ))}
+          </View>
+          <T style={{ fontSize: 12, color: colors.muted, textAlign: 'center' }}>Videos, documents and audio up to 16 MB</T>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -567,6 +690,7 @@ function Bubble({
   onLongPress,
   onReply,
   onReact,
+  onContact,
 }: {
   chatId: string;
   sender: string;
@@ -578,6 +702,7 @@ function Bubble({
   onLongPress: () => void;
   onReply: () => void;
   onReact: (e: string) => void;
+  onContact?: (phone: string, name: string) => void;
 }) {
   const time = msg.createdAt ? msg.createdAt.toDate().toTimeString().slice(0, 5) : '…';
   const dx = useRef(new Animated.Value(0)).current;
@@ -645,6 +770,11 @@ function Bubble({
             <>
               {msg.media?.kind === 'image' && <PhotoContent chatId={chatId} media={msg.media} caption={msg.text} from={sender} time={time} onLongPress={onLongPress} />}
               {msg.media?.kind === 'voice' && <VoiceContent chatId={chatId} media={msg.media} mine={mine} />}
+              {msg.media?.kind === 'file' && <FileContent chatId={chatId} media={msg.media} onLongPress={onLongPress} />}
+              {msg.media?.kind === 'video' && <VideoContent chatId={chatId} media={msg.media} onLongPress={onLongPress} />}
+              {msg.media?.kind === 'audio' && <AudioContent chatId={chatId} media={msg.media} onLongPress={onLongPress} />}
+              {msg.type === 'location' && msg.location && !msg.deleted && <LocationContent lat={msg.location.lat} lng={msg.location.lng} onLongPress={onLongPress} />}
+              {msg.type === 'contact' && msg.contact && !msg.deleted && <ContactContent name={msg.contact.name} phone={msg.contact.phone} onMessage={() => onContact?.(msg.contact!.phone, msg.contact!.name)} onLongPress={onLongPress} />}
               {!!msg.text && <T style={{ lineHeight: 21 }}>{msg.text}</T>}
             </>
           )}

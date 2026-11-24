@@ -303,6 +303,14 @@ test('photos and voice notes: members only, size-limited; profile photo size-lim
   await assertSucceeds(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'long'), { ...v, parts: 2 }));
   await assertFails(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'img'), { ...m, parts: 2 }));
   await assertFails(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'big'), { ...v, parts: 41 }));
+  // documents, videos and audio
+  const f = { from: A, kind: 'file', mime: 'application/pdf', data: 'x'.repeat(1000), createdAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'doc1'), { ...f, parts: 3 }));
+  await assertSucceeds(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'vid1'), { ...f, kind: 'video', mime: 'video/mp4' }));
+  await assertFails(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'bad1'), { ...f, kind: 'virus' }));
+  await assertFails(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'bad2'), { ...f, kind: 'image', mime: 'application/pdf' }));
+  await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), { from: A, type: 'document', text: '', media: { id: 'doc1', kind: 'file', name: 'a.pdf' }, createdAt: serverTimestamp() }));
+  await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), { from: A, type: 'location', text: '', location: { lat: -14.4, lng: 35.2 }, createdAt: serverTimestamp() }));
   await assertFails(addDoc(collection(as(EVE), 'chats', 'alice_bob', 'media'), { ...m, from: EVE }));
   await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), { from: A, type: 'image', text: '', media: { id: ref.id, kind: 'image', w: 10, h: 10 }, createdAt: serverTimestamp() }));
   await assertSucceeds(updateDoc(doc(as(A), 'users', A), { photoURL: 'data:image/jpeg;base64,' + 'x'.repeat(30000) }));

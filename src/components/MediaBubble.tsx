@@ -1,8 +1,9 @@
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, View } from 'react-native';
-import { usePhoto, voiceFile } from '../lib/media';
+import { ActivityIndicator, Image, Linking, Pressable, View } from 'react-native';
+import { dialog } from './Dialog';
+import { fileSize, mediaFile, usePhoto, voiceFile } from '../lib/media';
 import { colors, fonts } from '../lib/theme';
 import type { MediaRef } from '../lib/types';
 import { Icon, T } from './ui';
@@ -71,5 +72,159 @@ export function VoiceContent({ chatId, media, mine }: { chatId: string; media: M
       </View>
       <T style={{ fontSize: 12, color: colors.muted, fontFamily: fonts.semibold }}>{mmss(status.playing || pos > 0 ? pos : dur)}</T>
     </View>
+  );
+}
+
+// ---------- documents, videos, audio, location, contact ----------
+const EXT_COLORS: Record<string, string> = { PDF: '#D93025', DOC: '#2B579A', DOCX: '#2B579A', XLS: '#1F7A45', XLSX: '#1F7A45', CSV: '#1F7A45', PPT: '#C43E1C', PPTX: '#C43E1C', ZIP: '#6B4E16', TXT: '#4B5675' };
+const extOf = (name?: string) => (name?.split('.').pop() ?? 'FILE').toUpperCase().slice(0, 4);
+
+/** A document: coloured badge, name, type and size. Tap to open it in another app or save it. */
+export function FileContent({ chatId, media, onLongPress }: { chatId: string; media: MediaRef; onLongPress: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const ext = extOf(media.name);
+  async function open() {
+    setBusy(true);
+    try {
+      const uri = await mediaFile(chatId, media);
+      const Sharing = await import('expo-sharing');
+      await Sharing.shareAsync(uri, { mimeType: media.mime, dialogTitle: media.name ?? 'Open file' });
+    } catch {
+      dialog('Could not open the file', 'Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Document ${media.name ?? ''}, ${fileSize(media.size)}. Open`} onPress={open} onLongPress={onLongPress} delayLongPress={300}>
+      <View style={{ width: 240, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 12, backgroundColor: 'rgba(10,34,83,0.05)' }}>
+        <View style={{ width: 42, height: 50, borderRadius: 8, backgroundColor: EXT_COLORS[ext] ?? colors.navy, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6 }}>
+          <T style={{ color: '#FFFFFF', fontSize: 11, fontFamily: fonts.extrabold }}>{ext}</T>
+        </View>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T style={{ fontFamily: fonts.bold, fontSize: 14 }} numberOfLines={2}>{media.name ?? 'Document'}</T>
+          <T style={{ fontSize: 12, color: colors.muted }}>{`${ext} · ${fileSize(media.size)}`}</T>
+        </View>
+        {busy ? <ActivityIndicator color={colors.navy} /> : <Icon name="download" color={colors.navy} size={22} />}
+      </View>
+    </Pressable>
+  );
+}
+
+/** A video: preview picture with a play button. Tap to watch full screen. */
+export function VideoContent({ chatId, media, onLongPress }: { chatId: string; media: MediaRef; onLongPress: () => void }) {
+  const ratio = media.w && media.h ? media.h / media.w : 0.6;
+  const h = Math.round(Math.min(Math.max(W * ratio, 130), 300));
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Video, ${mmss(media.dur ?? 0)}. Play`}
+      onPress={() => router.push({ pathname: '/video', params: { chatId, mediaId: media.id, name: media.name ?? 'video.mp4', mime: media.mime ?? 'video/mp4', size: String(media.size ?? 0) } })}
+      onLongPress={onLongPress}
+      delayLongPress={300}
+    >
+      <View style={{ width: W, height: h, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.navy700, alignItems: 'center', justifyContent: 'center' }}>
+        {media.thumb && <Image source={{ uri: media.thumb }} style={{ position: 'absolute', width: W, height: h }} resizeMode="cover" />}
+        <View style={{ width: 58, height: 58, borderRadius: 29, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="play" color={colors.navy} size={28} />
+        </View>
+        <View style={{ position: 'absolute', left: 8, bottom: 6, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: 'rgba(10,34,83,0.6)' }}>
+          <T style={{ color: '#FFFFFF', fontSize: 12, fontFamily: fonts.bold }}>{`🎥 ${media.dur ? `${mmss(media.dur)} · ` : ''}${fileSize(media.size)}`}</T>
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+/** An audio file (song, recording): name, length, size and a play button right in the chat. */
+export function AudioContent({ chatId, media, onLongPress }: { chatId: string; media: MediaRef; onLongPress: () => void }) {
+  const player = useAudioPlayer(null);
+  const status = useAudioPlayerStatus(player);
+  const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const dur = status.duration || media.dur || 0;
+  const pos = status.currentTime || 0;
+  async function toggle() {
+    if (status.playing) return player.pause();
+    try {
+      if (!loaded) {
+        setBusy(true);
+        player.replace({ uri: await mediaFile(chatId, media) });
+        setLoaded(true);
+      } else if (status.didJustFinish || (dur && pos >= dur - 0.2)) {
+        await player.seekTo(0);
+      }
+      player.play();
+    } catch {
+      dialog('Could not play', 'Check your connection and try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Pressable onLongPress={onLongPress} delayLongPress={300} style={{ width: 250, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+      <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: '#F5ECFA', alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="music" color="#7B3FA0" size={22} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T style={{ fontFamily: fonts.bold, fontSize: 14 }} numberOfLines={1}>{media.name ?? 'Audio'}</T>
+        <T style={{ fontSize: 12, color: colors.muted }}>{`${dur ? `${mmss(status.playing || pos > 0 ? pos : dur)} · ` : ''}${fileSize(media.size)}`}</T>
+        {dur > 0 && (
+          <View style={{ height: 3, borderRadius: 2, backgroundColor: colors.line, marginTop: 5, overflow: 'hidden' }}>
+            <View style={{ height: 3, width: `${Math.min(100, (pos / dur) * 100)}%`, backgroundColor: colors.navy }} />
+          </View>
+        )}
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={status.playing ? 'Pause' : 'Play'} onPress={toggle} style={{ width: 42, height: 42, borderRadius: 21, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
+        {busy ? <ActivityIndicator color={colors.lime} size="small" /> : <Icon name={status.playing ? 'pause' : 'play'} color={colors.lime} size={18} />}
+      </Pressable>
+    </Pressable>
+  );
+}
+
+/** A shared location: tap to open it in Maps. */
+export function LocationContent({ lat, lng, onLongPress }: { lat: number; lng: number; onLongPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Shared location. Open in Maps"
+      onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`)}
+      onLongPress={onLongPress}
+      delayLongPress={300}
+      style={{ width: 240, borderRadius: 12, overflow: 'hidden', backgroundColor: '#EAF6EE' }}
+    >
+      <View style={{ height: 110, alignItems: 'center', justifyContent: 'center' }}>
+        <Icon name="pin" color="#1F7A45" size={40} />
+      </View>
+      <View style={{ padding: 10, backgroundColor: 'rgba(255,255,255,0.7)' }}>
+        <T style={{ fontFamily: fonts.bold }}>📍 Location</T>
+        <T style={{ fontSize: 12, color: colors.muted }}>{`${lat.toFixed(5)}, ${lng.toFixed(5)} · tap to open in Maps`}</T>
+      </View>
+    </Pressable>
+  );
+}
+
+/** A shared contact: name, number, and Call / Message buttons. */
+export function ContactContent({ name, phone, onMessage, onLongPress }: { name: string; phone: string; onMessage: () => void; onLongPress: () => void }) {
+  return (
+    <Pressable onLongPress={onLongPress} delayLongPress={300} style={{ width: 240, gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: '#FFF4D6', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="person" color="#8A5A00" size={22} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <T style={{ fontFamily: fonts.bold }} numberOfLines={1}>{name}</T>
+          <T style={{ fontSize: 13, color: colors.muted }}>{phone}</T>
+        </View>
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Pressable accessibilityRole="button" onPress={() => Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`)} style={{ flex: 1, minHeight: 40, borderRadius: 12, backgroundColor: colors.surface100, alignItems: 'center', justifyContent: 'center' }}>
+          <T style={{ fontFamily: fonts.bold, color: colors.navy }}>Call</T>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onMessage} style={{ flex: 1, minHeight: 40, borderRadius: 12, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
+          <T style={{ fontFamily: fonts.bold, color: '#FFFFFF' }}>Message</T>
+        </Pressable>
+      </View>
+    </Pressable>
   );
 }

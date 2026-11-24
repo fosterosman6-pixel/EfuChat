@@ -59,7 +59,11 @@ export type Message = {
   id: string;
   from: string;
   text: string;
-  type: 'text' | 'image' | 'voice' | 'document' | 'location' | 'contact' | 'call';
+  type: 'text' | 'image' | 'voice' | 'document' | 'video' | 'audio' | 'location' | 'contact' | 'call';
+  /** shared location */
+  location?: { lat: number; lng: number };
+  /** shared contact */
+  contact?: { name: string; phone: string };
   /** call lines: written by the caller when a call finishes */
   call?: { callId: string; kind: 'voice' | 'video'; outcome: 'answered' | 'missed' | 'declined' | 'cancelled'; dur?: number };
   createdAt: Ts | null;
@@ -73,7 +77,18 @@ export type Message = {
   media?: MediaRef;
 };
 
-export type MediaRef = { id: string; kind: 'image' | 'voice'; w?: number; h?: number; thumb?: string; dur?: number };
+export type MediaRef = {
+  id: string;
+  kind: 'image' | 'voice' | 'file' | 'video' | 'audio';
+  w?: number;
+  h?: number;
+  thumb?: string;
+  dur?: number;
+  /** files, videos and audio: original name, type and size in bytes */
+  name?: string;
+  mime?: string;
+  size?: number;
+};
 
 export type Story = {
   id: string;

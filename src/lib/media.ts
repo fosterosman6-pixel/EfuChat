@@ -46,10 +46,10 @@ async function thumbnail(uri: string) {
 const MAX_PARTS = 40;
 
 /** Saves media in the chat. Anything larger than one record is split into numbered pieces ("<id>-p1", "-p2"…). */
-async function saveMedia(chatId: string, from: string, kind: 'image' | 'voice', mime: string, data: string) {
+async function saveMedia(chatId: string, from: string, kind: MediaRef['kind'], mime: string, data: string) {
   if (kind === 'image' && data.length > MAX_B64) throw new Error('Photo is too large.');
   const parts = Math.max(1, Math.ceil(data.length / MAX_B64));
-  if (parts > MAX_PARTS) throw new Error('Voice note is too long.');
+  if (parts > MAX_PARTS) throw new Error(kind === 'voice' ? 'Voice note is too long.' : 'This file is too big (max 16 MB).');
   const col = collection(db, 'chats', chatId, 'media');
   if (parts === 1) return (await addDoc(col, { from, kind, mime, data, createdAt: serverTimestamp() })).id;
   const main = doc(col);
@@ -122,6 +122,7 @@ export function usePhoto(chatId: string | undefined, media: MediaRef | undefined
 
 /** Writes a voice note to the cache folder so the player can open it. */
 export async function voiceFile(chatId: string, media: MediaRef) {
+  if (media.kind !== 'voice') return mediaFile(chatId, media);
   const f = new File(Paths.cache, `voice-${media.id}.m4a`);
   if (!f.exists) {
     const data = await loadMedia(chatId, media.id);
@@ -129,4 +130,53 @@ export async function voiceFile(chatId: string, media: MediaRef) {
     await f.write(data, { encoding: 'base64' });
   }
   return f.uri;
+}
+
+// ---------- documents, videos and audio files ----------
+export const MAX_FILE_BYTES = 16 * 1024 * 1024;
+
+export function fileSize(bytes?: number) {
+  if (!bytes) return '';
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+const safeName = (n: string) => n.replace(/[^\w.\- ]+/g, '_').slice(-80) || 'file';
+
+/** Writes a shared file to the cache folder (keeping its name) so it can be played or opened. */
+export async function mediaFile(chatId: string, media: MediaRef) {
+  const f = new File(Paths.cache, `${media.id}-${safeName(media.name ?? `${media.kind}.bin`)}`);
+  if (!f.exists) {
+    const data = await loadMedia(chatId, media.id);
+    f.create({ overwrite: true });
+    await f.write(data, { encoding: 'base64' });
+  }
+  return f.uri;
+}
+
+export type PickedFile = { uri: string; name: string; mime: string; size?: number; dur?: number; w?: number; h?: number; thumb?: string };
+
+/** Sends a document, video or audio file (up to 16 MB). */
+export async function sendFile(chat: Chat, from: string, kind: 'file' | 'video' | 'audio', f: PickedFile, replyTo?: ReplyRef) {
+  const file = new File(f.uri);
+  const size = f.size ?? file.size ?? 0;
+  if (size > MAX_FILE_BYTES) throw new Error(`This file is ${fileSize(size)}. The most you can send is 16 MB.`);
+  const data = await file.base64();
+  const id = await saveMedia(chat.id, from, kind, (f.mime || 'application/octet-stream').slice(0, 120), data);
+  const media: MediaRef = { id, kind, name: f.name.slice(0, 120), mime: f.mime.slice(0, 120), size, ...(f.dur ? { dur: Math.round(f.dur) } : {}), ...(f.w ? { w: f.w, h: f.h } : {}), ...(f.thumb ? { thumb: f.thumb } : {}) };
+  const type = kind === 'file' ? 'document' : kind;
+  const preview = kind === 'video' ? '🎥 Video' : kind === 'audio' ? `🎵 ${f.name}` : `📄 ${f.name}`;
+  await postMessage(chat, from, { type, text: '', media }, preview.slice(0, 120), { replyTo });
+}
+
+/** A small blurred-preview image for a video (data URI), or undefined. */
+export async function videoThumb(uri: string) {
+  try {
+    const { getThumbnailAsync } = await import('expo-video-thumbnails');
+    const t = await getThumbnailAsync(uri, { time: 500, quality: 0.5 });
+    const small = await jpeg(t.uri, 320, 0.6);
+    return { thumb: `data:image/jpeg;base64,${small.base64}`, w: t.width, h: t.height };
+  } catch {
+    return undefined;
+  }
 }
