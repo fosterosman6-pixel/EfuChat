@@ -223,7 +223,7 @@ export const canEditGroup = (chat: Chat | null, uid: string) => !!chat && (chat.
 export const isAdmin = (chat: Chat | null, uid: string) => !!chat?.admins?.includes(uid);
 
 export async function markRead(chatId: string, uid: string) {
-  await updateDoc(doc(db, 'chats', chatId), { [`unread.${uid}`]: 0 });
+  await updateDoc(doc(db, 'chats', chatId), { [`unread.${uid}`]: 0, [`readAt.${uid}`]: serverTimestamp() });
 }
 
 /** Looks a person up by phone number through the phoneIndex collection. */

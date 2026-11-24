@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, getDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from '@react-native-firebase/firestore';
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useEffect, useState } from 'react';
@@ -42,10 +42,23 @@ async function thumbnail(uri: string) {
   return `data:image/jpeg;base64,${r.base64}`;
 }
 
+/** Longest voice note we store: 60 minutes at ~24 kbit/s is about 14 MB of text, in pieces. */
+const MAX_PARTS = 40;
+
+/** Saves media in the chat. Anything larger than one record is split into numbered pieces ("<id>-p1", "-p2"…). */
 async function saveMedia(chatId: string, from: string, kind: 'image' | 'voice', mime: string, data: string) {
-  if (data.length > MAX_B64) throw new Error(kind === 'voice' ? 'Voice note is too long.' : 'Photo is too large.');
-  const ref = await addDoc(collection(db, 'chats', chatId, 'media'), { from, kind, mime, data, createdAt: serverTimestamp() });
-  return ref.id;
+  if (kind === 'image' && data.length > MAX_B64) throw new Error('Photo is too large.');
+  const parts = Math.max(1, Math.ceil(data.length / MAX_B64));
+  if (parts > MAX_PARTS) throw new Error('Voice note is too long.');
+  const col = collection(db, 'chats', chatId, 'media');
+  if (parts === 1) return (await addDoc(col, { from, kind, mime, data, createdAt: serverTimestamp() })).id;
+  const main = doc(col);
+  // Pieces first, then the main record, so a reader never finds a main record with missing pieces.
+  for (let i = 1; i < parts; i++) {
+    await setDoc(doc(col, `${main.id}-p${i}`), { from, kind, mime, data: data.slice(i * MAX_B64, (i + 1) * MAX_B64), part: i, createdAt: serverTimestamp() });
+  }
+  await setDoc(main, { from, kind, mime, data: data.slice(0, MAX_B64), parts, createdAt: serverTimestamp() });
+  return main.id;
 }
 
 export async function sendPhoto(chat: Chat, from: string, uri: string, caption: string, replyTo?: ReplyRef) {
@@ -72,9 +85,17 @@ export function loadMedia(chatId: string, mediaId: string): Promise<string> {
   if (hit) return Promise.resolve(hit);
   let p = loading.get(key);
   if (!p) {
-    p = getDoc(doc(db, 'chats', chatId, 'media', mediaId)).then((s) => {
-      const data = (s.data()?.data as string | undefined) ?? '';
+    p = getDoc(doc(db, 'chats', chatId, 'media', mediaId)).then(async (s) => {
+      let data = (s.data()?.data as string | undefined) ?? '';
       if (!data) throw new Error('missing');
+      const parts = Number(s.data()?.parts ?? 1);
+      if (parts > 1) {
+        const rest = await Promise.all(
+          Array.from({ length: parts - 1 }, (_, i) => getDoc(doc(db, 'chats', chatId, 'media', `${mediaId}-p${i + 1}`)).then((d) => (d.data()?.data as string | undefined) ?? '')),
+        );
+        if (rest.some((r) => !r)) throw new Error('missing');
+        data += rest.join('');
+      }
       if (cache.size > 40) cache.delete(cache.keys().next().value as string);
       cache.set(key, data);
       return data;

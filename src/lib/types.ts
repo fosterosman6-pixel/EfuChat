@@ -45,6 +45,8 @@ export type Chat = {
   createdBy?: string;
   lastMessage?: { text: string; from: string; at: Ts | null };
   unread?: Record<string, number>;
+  /** when each member last read this chat (server time) */
+  readAt?: Record<string, Ts>;
   /** when each member last typed; "typing…" shows for a few seconds after */
   typing?: Record<string, Ts | null>;
   pinned?: { id: string; text: string; from: string } | null;

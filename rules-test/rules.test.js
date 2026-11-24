@@ -232,6 +232,8 @@ test('groups: photo, description, edit permission and mute', async () => {
   await assertSucceeds(updateDoc(doc(as(B), 'chats', 'g9'), { description: 'ours', photoURL: null }));
   await assertSucceeds(updateDoc(doc(as(B), 'chats', 'g9'), { [`muted.${B}`]: true }));
   await assertFails(updateDoc(doc(as(B), 'chats', 'g9'), { [`muted.${A}`]: true }));
+  await assertSucceeds(updateDoc(doc(as(B), 'chats', 'g9'), { [`readAt.${B}`]: serverTimestamp(), [`unread.${B}`]: 0 }));
+  await assertFails(updateDoc(doc(as(B), 'chats', 'g9'), { [`readAt.${A}`]: serverTimestamp() }));
 });
 
 test('groups: creator is the only admin; admins manage, members cannot', async () => {
@@ -295,6 +297,12 @@ test('photos and voice notes: members only, size-limited; profile photo size-lim
   await assertFails(getDoc(doc(as(EVE), 'chats', 'alice_bob', 'media', ref.id)));
   await assertFails(addDoc(collection(as(A), 'chats', 'alice_bob', 'media'), { ...m, data: 'x'.repeat(700001) }));
   await assertFails(addDoc(collection(as(A), 'chats', 'alice_bob', 'media'), { ...m, from: B }));
+  // long voice notes in pieces
+  const v = { from: A, kind: 'voice', mime: 'audio/mp4', data: 'x'.repeat(1000), createdAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'long-p1'), { ...v, part: 1 }));
+  await assertSucceeds(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'long'), { ...v, parts: 2 }));
+  await assertFails(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'img'), { ...m, parts: 2 }));
+  await assertFails(setDoc(doc(as(A), 'chats', 'alice_bob', 'media', 'big'), { ...v, parts: 41 }));
   await assertFails(addDoc(collection(as(EVE), 'chats', 'alice_bob', 'media'), { ...m, from: EVE }));
   await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), { from: A, type: 'image', text: '', media: { id: ref.id, kind: 'image', w: 10, h: 10 }, createdAt: serverTimestamp() }));
   await assertSucceeds(updateDoc(doc(as(A), 'users', A), { photoURL: 'data:image/jpeg;base64,' + 'x'.repeat(30000) }));

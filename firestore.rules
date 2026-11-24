@@ -151,6 +151,10 @@ service cloud.firestore {
         && (!changed().hasAny(['groupName']) || (str(incoming().groupName, 50) && incoming().groupName.size() >= 2))
         && (!changed().hasAny(['description']) || str(incoming().description, 300))
         && (!changed().hasAny(['photoURL']) || incoming().photoURL == null || (incoming().photoURL is string && incoming().photoURL.size() < 100000))
+        // each person records only their own "read up to" time, set by the server
+        && (!changed().hasAny(['readAt']) || (incoming().readAt is map
+            && incoming().readAt.diff(resource.data.get('readAt', {})).affectedKeys().hasOnly([me()])
+            && incoming().readAt[me()] == request.time))
         // each person mutes only for themselves
         && (!changed().hasAny(['muted']) || (incoming().muted is map
             && incoming().muted.diff(resource.data.get('muted', {})).affectedKeys().hasOnly([me()])))
@@ -162,9 +166,12 @@ service cloud.firestore {
       match /media/{mediaId} {
         allow get: if signedIn() && me() in members();
         allow create: if active() && me() in members() && incoming().from == me()
-          && incoming().keys().hasOnly(['from', 'kind', 'mime', 'data', 'createdAt'])
+          && incoming().keys().hasOnly(['from', 'kind', 'mime', 'data', 'createdAt', 'parts', 'part'])
           && incoming().kind in ['image', 'voice'] && incoming().mime in ['image/jpeg', 'audio/mp4']
-          && incoming().data is string && incoming().data.size() <= 700000;
+          && incoming().data is string && incoming().data.size() <= 700000
+          // long voice notes are split into numbered pieces
+          && (!('parts' in incoming()) || (incoming().kind == 'voice' && incoming().parts is int && incoming().parts >= 2 && incoming().parts <= 40))
+          && (!('part' in incoming()) || (incoming().kind == 'voice' && incoming().part is int && incoming().part >= 1 && incoming().part < 40));
       }
 
       match /messages/{msgId} {

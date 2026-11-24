@@ -37,7 +37,7 @@ import { usePrefs } from '../../lib/prefs';
 import { WallpaperFill, WallpaperPicker } from '../../components/Wallpaper';
 import { db } from '../../lib/firebase';
 import { sendVoice } from '../../lib/media';
-import { MAX_VOICE_SECONDS, useVoiceRecorder } from '../../lib/useVoiceRecorder';
+import { useVoiceRecorder } from '../../lib/useVoiceRecorder';
 import * as ImagePicker from 'expo-image-picker';
 import { useLang } from '../../lib/i18n';
 import type { IconName } from '../../lib/icons';
@@ -63,6 +63,7 @@ export default function Conversation() {
   const [text, setText] = useState(draft ?? '');
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [selected, setSelected] = useState<Message | null>(null);
+  const [infoFor, setInfoFor] = useState<Message | null>(null);
   const [menu, setMenu] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
   const { wallpaperFor } = usePrefs();
@@ -171,11 +172,17 @@ export default function Conversation() {
     router.push({ pathname: '/send-photos', params: { chatId: chat.id, uris: JSON.stringify(res.assets.map((a) => a.uri)), to: title } });
   }
 
-  // ---------- voice notes: hold the mic, slide left to cancel ----------
+  // ---------- voice notes: hold the mic, slide left to cancel, slide up to lock ----------
   const voice = useVoiceRecorder(() => stopVoice(true));
   const cancelled = useRef(false);
+  const lockedRef = useRef(false);
+  const [locked, setLocked] = useState(false);
   const [slide, setSlide] = useState(0);
+  const [lift, setLift] = useState(0);
   async function stopVoice(keep: boolean) {
+    lockedRef.current = false;
+    setLocked(false);
+    setLift(0);
     const r = await voice.finish(keep && !cancelled.current);
     setSlide(0);
     if (!r || !chat) return;
@@ -187,14 +194,27 @@ export default function Conversation() {
         onStartShouldSetPanResponder: () => true,
         onPanResponderGrant: () => {
           cancelled.current = false;
+          lockedRef.current = false;
           voice.start().catch(() => {});
         },
         onPanResponderMove: (_, g) => {
+          if (lockedRef.current) return;
           setSlide(Math.min(0, g.dx));
+          setLift(Math.min(0, g.dy));
           if (g.dx < -90) cancelled.current = true;
+          if (g.dy < -80 && g.dx > -60) {
+            lockedRef.current = true;
+            setLocked(true);
+            setSlide(0);
+            setLift(0);
+          }
         },
-        onPanResponderRelease: () => stopVoice(true),
-        onPanResponderTerminate: () => stopVoice(false),
+        onPanResponderRelease: () => {
+          if (!lockedRef.current) stopVoice(true);
+        },
+        onPanResponderTerminate: () => {
+          if (!lockedRef.current) stopVoice(false);
+        },
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [chat, me],
@@ -233,8 +253,8 @@ export default function Conversation() {
           <IconButton name="back" label="Back to chats" onPress={() => router.back()} />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={isGroup ? 'Group info' : `${title}, ${sub}`}
-            onPress={() => isGroup && router.push({ pathname: '/group/[id]', params: { id } })}
+            accessibilityLabel={isGroup ? 'Group info' : `${title}, ${sub}. Open profile`}
+            onPress={() => (isGroup ? router.push({ pathname: '/group/[id]', params: { id } }) : otherUid && router.push({ pathname: '/profile/[uid]', params: { uid: otherUid } }))}
             style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 }}
           >
             <View>
@@ -283,6 +303,11 @@ export default function Conversation() {
       <FlatList
         style={{ flex: 1, zIndex: 1, elevation: 1 }}
         inverted
+        // Android hid every message after a layout change (reply bar, keyboard) with clipping on; keep them drawn.
+        removeClippedSubviews={false}
+        initialNumToRender={25}
+        maxToRenderPerBatch={25}
+        windowSize={15}
         data={msgs}
         keyExtractor={(m) => m.id}
         contentContainerStyle={{ padding: 12, gap: 6 }}
@@ -391,11 +416,43 @@ export default function Conversation() {
               style={{ position: 'absolute', left: 8, right: 76, bottom: (kbd ? 0 : insets.bottom) + 10, height: 48, borderRadius: 16, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 }}
             >
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger }} />
-              <T style={{ fontFamily: fonts.extrabold, width: 42 }}>{`${Math.floor(voice.secs / 60)}:${String(Math.floor(voice.secs % 60)).padStart(2, '0')}`}</T>
-              <T style={{ flex: 1, textAlign: 'center', color: slide < -90 ? colors.danger : colors.muted, fontFamily: fonts.semibold, transform: [{ translateX: Math.max(slide, -60) }] }}>
+              <T style={{ fontFamily: fonts.extrabold, minWidth: 48 }}>{fmtVoice(voice.secs)}</T>
+              <T numberOfLines={1} style={{ flex: 1, textAlign: 'center', color: slide < -90 ? colors.danger : colors.muted, fontFamily: fonts.semibold, transform: [{ translateX: Math.max(slide, -60) }] }}>
                 {slide < -90 ? 'Release to cancel' : '‹ Slide to cancel'}
               </T>
-              <T style={{ fontSize: 12, color: colors.muted }}>{`max ${MAX_VOICE_SECONDS / 60}:00`}</T>
+            </View>
+          )}
+          {voice.recording && !locked && (
+            <View
+              pointerEvents="none"
+              style={{ position: 'absolute', right: 14, bottom: (kbd ? 0 : insets.bottom) + 84 - Math.max(lift, -60), width: 52, paddingVertical: 12, borderRadius: 26, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, alignItems: 'center', gap: 4, elevation: 4 }}
+            >
+              <Icon name="lock" color={lift < -40 ? colors.lime600 : colors.navy} size={22} />
+              <T style={{ fontSize: 16, color: colors.muted }}>⌃</T>
+            </View>
+          )}
+          {voice.recording && locked && (
+            <View style={{ position: 'absolute', left: 8, right: 8, bottom: (kbd ? 0 : insets.bottom) + 8, padding: 14, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, gap: 12, elevation: 4 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: voice.paused ? colors.muted : colors.danger }} />
+                <T style={{ fontFamily: fonts.extrabold, fontSize: 17, minWidth: 54 }}>{fmtVoice(voice.secs)}</T>
+                <View style={{ flex: 1, height: 30, flexDirection: 'row', alignItems: 'center', gap: 2, overflow: 'hidden', justifyContent: 'flex-end' }}>
+                  {voice.levels.map((l, i) => (
+                    <View key={i} style={{ width: 3, borderRadius: 2, height: Math.max(4, l * 28), backgroundColor: voice.paused ? colors.soft : colors.lime600 }} />
+                  ))}
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Pressable accessibilityRole="button" accessibilityLabel="Delete recording" onPress={() => { cancelled.current = true; stopVoice(false); }} style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.dangerTint, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="trash" color={colors.danger} size={24} />
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel={voice.paused ? 'Resume recording' : 'Pause recording'} onPress={voice.togglePause} style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: colors.surface100, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={voice.paused ? 'mic' : 'pause'} color={voice.paused ? colors.danger : colors.navy} size={24} />
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Send voice note" onPress={() => stopVoice(true)} style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.lime, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="send" color={colors.navy} size={26} />
+                </Pressable>
+              </View>
             </View>
           )}
         </>
@@ -415,6 +472,7 @@ export default function Conversation() {
           onClose={() => setSelected(null)}
           onReact={(e) => react(chat.id, selected.id, me, selected.reactions?.[me] === e ? null : e).catch(() => {})}
           onReply={() => startReply(selected)}
+          onInfo={() => setInfoFor(selected)}
           onCopy={() => Clipboard.setStringAsync(selected.text)}
           onForward={() => router.push({ pathname: '/forward', params: { text: selected.text } })}
           onPin={() => pinMessage(chat.id, chat.pinned?.id === selected.id ? null : { ...selected, text: PREVIEW(selected) }).catch(() => dialog('Could not pin', 'Try again.'))}
@@ -435,7 +493,7 @@ export default function Conversation() {
         <Pressable style={{ flex: 1 }} onPress={() => setMenu(false)} accessibilityLabel="Close menu">
           <View style={{ position: 'absolute', top: insets.top + 56, right: 10, backgroundColor: '#FFFFFF', borderRadius: 14, paddingVertical: 6, minWidth: 190, elevation: 8, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12 }}>
             {[
-              ...(isGroup ? [{ icon: 'group' as IconName, label: 'Group info', go: () => router.push({ pathname: '/group/[id]', params: { id } }) }] : []),
+              ...(isGroup ? [{ icon: 'group' as IconName, label: 'Group info', go: () => router.push({ pathname: '/group/[id]', params: { id } }) }] : otherUid ? [{ icon: 'person' as IconName, label: 'View profile', go: () => router.push({ pathname: '/profile/[uid]', params: { uid: otherUid } }) }] : []),
               { icon: 'palette' as IconName, label: 'Wallpaper', go: () => setWpOpen(true) },
             ].map((o) => (
               <Pressable key={o.label} accessibilityRole="menuitem" onPress={() => { setMenu(false); o.go(); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 }}>
@@ -447,6 +505,7 @@ export default function Conversation() {
         </Pressable>
       </Modal>
       <WallpaperPicker visible={wpOpen} chatId={chat?.id ?? id} onClose={() => setWpOpen(false)} />
+      {infoFor && chat && <MessageInfo chat={chat} msg={infoFor} me={me} onClose={() => setInfoFor(null)} />}
     </KeyboardAvoidingView>
   );
 }
@@ -623,6 +682,7 @@ function Actions({
   onForward,
   onPin,
   onDelete,
+  onInfo,
 }: {
   msg: Message;
   mine: boolean;
@@ -635,9 +695,11 @@ function Actions({
   onForward: () => void;
   onPin: () => void;
   onDelete: () => void;
+  onInfo?: () => void;
 }) {
   const items: { icon: IconName; label: string; run: () => void; danger?: boolean }[] = [
     { icon: 'reply', label: 'Reply', run: onReply },
+    ...(mine && onInfo ? [{ icon: 'check' as IconName, label: 'Message info', run: onInfo }] : []),
     ...(msg.text ? [{ icon: 'copy' as IconName, label: 'Copy', run: onCopy }] : []),
     ...(!msg.media ? [{ icon: 'forward' as IconName, label: 'Forward', run: onForward }] : []),
     { icon: 'pin', label: pinned ? 'Unpin' : 'Pin', run: onPin },
@@ -738,5 +800,65 @@ function CallLine({ msg, mine, onCallBack, onLongPress }: { msg: Message; mine: 
         </Pressable>
       )}
     </Pressable>
+  );
+}
+
+function fmtVoice(secs: number) {
+  const t = Math.floor(secs);
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), x = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;
+}
+
+/** Who has read my message: everyone whose "read up to" time is after it was sent. */
+function MessageInfo({ chat, msg, me, onClose }: { chat: Chat; msg: Message; me: string; onClose: () => void }) {
+  const insets = useSafeAreaInsets();
+  const sent = msg.createdAt?.toDate().getTime() ?? 0;
+  const rows = chat.members
+    .filter((m) => m !== me)
+    .map((uid) => {
+      const at = chat.readAt?.[uid]?.toDate();
+      // before read times were recorded, "no unread" is the best we know
+      const read = at ? at.getTime() >= sent : (chat.unread?.[uid] ?? 0) === 0 && !!chat.updatedAt;
+      return { uid, name: chat.names[uid] ?? 'EfuChat user', read, at: at && at.getTime() >= sent ? at : null };
+    })
+    .sort((a, b) => Number(b.read) - Number(a.read));
+  const readers = rows.filter((r) => r.read);
+  const waiting = rows.filter((r) => !r.read);
+  const when = (d: Date) => {
+    const today = new Date().toDateString() === d.toDateString();
+    return `${today ? 'Today' : d.toLocaleDateString()} ${d.toTimeString().slice(0, 5)}`;
+  };
+  const Row = ({ r }: { r: (typeof rows)[number] }) => (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        onClose();
+        router.push({ pathname: '/profile/[uid]', params: { uid: r.uid } });
+      }}
+      style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.surface100 }}
+    >
+      <Avatar name={r.name} size={44} rounded={999} />
+      <View style={{ flex: 1 }}>
+        <T style={{ fontFamily: fonts.bold }} numberOfLines={1}>{r.name}</T>
+        <T style={{ fontSize: 13, color: colors.muted }}>{r.read ? (r.at ? `Read ${when(r.at)}` : 'Read') : 'Not read yet'}</T>
+      </View>
+      {r.read && <T style={{ color: colors.lime600, fontFamily: fonts.extrabold }}>✓✓</T>}
+    </Pressable>
+  );
+  return (
+    <Modal transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(10,34,83,0.45)' }} onPress={onClose} />
+      <View style={{ maxHeight: '70%', backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 16, paddingBottom: insets.bottom + 16 }}>
+        <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line, marginBottom: 10 }} />
+        <T style={{ fontFamily: fonts.extrabold, fontSize: 19 }}>Message info</T>
+        <T style={{ color: colors.muted, marginTop: 4, marginBottom: 8 }} numberOfLines={2}>{PREVIEW(msg)}</T>
+        <ScrollView>
+          <T style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.lime600, marginTop: 6 }}>{`READ BY ${readers.length}`}</T>
+          {readers.map((r) => <Row key={r.uid} r={r} />)}
+          {!!waiting.length && <T style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.muted, marginTop: 14 }}>{`NOT READ YET · ${waiting.length}`}</T>}
+          {waiting.map((r) => <Row key={r.uid} r={r} />)}
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
