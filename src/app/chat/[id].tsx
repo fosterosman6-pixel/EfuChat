@@ -63,6 +63,8 @@ export default function Conversation() {
   const [text, setText] = useState(draft ?? '');
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [selected, setSelected] = useState<Message | null>(null);
+  const listRef = useRef<{ scrollToEnd: (o?: { animated?: boolean }) => void } | null>(null);
+  const atBottom = useRef(true);
   const [infoFor, setInfoFor] = useState<Message | null>(null);
   const [menu, setMenu] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
@@ -300,39 +302,47 @@ export default function Conversation() {
           <T style={{ color: colors.danger, fontFamily: fonts.bold }}>{`Messages could not load: ${loadError}`}</T>
         </View>
       )}
-      <FlatList
-        style={{ flex: 1, zIndex: 1, elevation: 1 }}
-        inverted
-        // Android hid every message after a layout change (reply bar, keyboard) with clipping on; keep them drawn.
-        removeClippedSubviews={false}
-        initialNumToRender={25}
-        maxToRenderPerBatch={25}
-        windowSize={15}
-        data={msgs}
-        keyExtractor={(m) => m.id}
-        contentContainerStyle={{ padding: 12, gap: 6 }}
-        ListHeaderComponent={typing.length ? <TypingDots /> : undefined}
-        renderItem={({ item, index }) => {
-          const prev = msgs[index + 1];
-          const showName = isGroup && item.from !== me && prev?.from !== item.from;
-          if (item.type === 'call' && item.call && !item.deleted)
-            return <CallLine msg={item} mine={item.from === me} onCallBack={() => call(item.call!.kind)} onLongPress={() => setSelected(item)} />;
-          return (
-            <Bubble
-              chatId={chat?.id ?? ''}
-              sender={item.from === me ? 'You' : (chat?.names[item.from] ?? 'EfuChat user')}
-              msg={item}
-              mine={item.from === me}
-              read={readByAll(item)}
-              name={showName ? (chat?.names[item.from] ?? 'EfuChat user') : undefined}
-              me={me}
-              onLongPress={() => !item.deleted && setSelected(item)}
-              onReply={() => startReply(item)}
-              onReact={(e) => chat && react(chat.id, item.id, me, item.reactions?.[me] === e ? null : e).catch(() => {})}
-            />
-          );
+      {/* A plain list (oldest at the top, newest at the bottom). The virtualised inverted list
+          lost all its messages on Android whenever the keyboard or reply bar changed its size. */}
+      <ScrollView
+        ref={listRef as never}
+        style={{ flex: 1, zIndex: 1 }}
+        contentContainerStyle={{ padding: 12, gap: 6, flexGrow: 1, justifyContent: 'flex-end' }}
+        keyboardShouldPersistTaps="handled"
+        onScroll={(e) => {
+          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+          atBottom.current = contentSize.height - (contentOffset.y + layoutMeasurement.height) < 120;
         }}
-      />
+        scrollEventThrottle={100}
+        onContentSizeChange={() => atBottom.current && listRef.current?.scrollToEnd({ animated: false })}
+        onLayout={() => atBottom.current && listRef.current?.scrollToEnd({ animated: false })}
+      >
+        {msgs
+          .map((item, index) => ({ item, index }))
+          .reverse()
+          .map(({ item, index }) => {
+            const prev = msgs[index + 1];
+            const showName = isGroup && item.from !== me && prev?.from !== item.from;
+            if (item.type === 'call' && item.call && !item.deleted)
+              return <CallLine key={item.id} msg={item} mine={item.from === me} onCallBack={() => call(item.call!.kind)} onLongPress={() => setSelected(item)} />;
+            return (
+              <Bubble
+                key={item.id}
+                chatId={chat?.id ?? ''}
+                sender={item.from === me ? 'You' : (chat?.names[item.from] ?? 'EfuChat user')}
+                msg={item}
+                mine={item.from === me}
+                read={readByAll(item)}
+                name={showName ? (chat?.names[item.from] ?? 'EfuChat user') : undefined}
+                me={me}
+                onLongPress={() => !item.deleted && setSelected(item)}
+                onReply={() => startReply(item)}
+                onReact={(e) => chat && react(chat.id, item.id, me, item.reactions?.[me] === e ? null : e).catch(() => {})}
+              />
+            );
+          })}
+        {typing.length ? <TypingDots /> : null}
+      </ScrollView>
       </View>
 
       {canSend ? (
