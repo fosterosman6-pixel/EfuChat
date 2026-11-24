@@ -63,8 +63,6 @@ export default function Conversation() {
   const [text, setText] = useState(draft ?? '');
   const [replyTo, setReplyTo] = useState<ReplyRef | null>(null);
   const [selected, setSelected] = useState<Message | null>(null);
-  const listRef = useRef<{ scrollToEnd: (o?: { animated?: boolean }) => void } | null>(null);
-  const atBottom = useRef(true);
   const [infoFor, setInfoFor] = useState<Message | null>(null);
   const [menu, setMenu] = useState(false);
   const [wpOpen, setWpOpen] = useState(false);
@@ -313,46 +311,44 @@ export default function Conversation() {
           <T style={{ color: colors.danger, fontFamily: fonts.bold }}>{`Messages could not load: ${loadError}`}</T>
         </View>
       )}
-      {/* A plain list (oldest at the top, newest at the bottom). The virtualised inverted list
-          lost all its messages on Android whenever the keyboard or reply bar changed its size. */}
+      {/* Messages, newest at the bottom. The list is flipped (like WhatsApp's) so it always stays
+          anchored to the newest message when the keyboard or reply bar changes its size, and every
+          message is drawn (the virtual list lost them all on Android). */}
       <ScrollView
-        ref={listRef as never}
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 12, gap: 6, flexGrow: 1, justifyContent: 'flex-end' }}
+        style={{ flex: 1, transform: [{ scaleY: -1 }] }}
+        contentContainerStyle={{ padding: 12, gap: 6, flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
-        onScroll={(e) => {
-          const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-          atBottom.current = contentSize.height - (contentOffset.y + layoutMeasurement.height) < 120;
-        }}
-        scrollEventThrottle={100}
-        onContentSizeChange={() => atBottom.current && listRef.current?.scrollToEnd({ animated: false })}
-        onLayout={() => atBottom.current && listRef.current?.scrollToEnd({ animated: false })}
+        showsVerticalScrollIndicator={false}
       >
-        {msgs
-          .map((item, index) => ({ item, index }))
-          .reverse()
-          .map(({ item, index }) => {
-            const prev = msgs[index + 1];
-            const showName = isGroup && item.from !== me && prev?.from !== item.from;
-            if (item.type === 'call' && item.call && !item.deleted)
-              return <CallLine key={item.id} msg={item} mine={item.from === me} onCallBack={() => call(item.call!.kind)} onLongPress={() => setSelected(item)} />;
-            return (
-              <Bubble
-                key={item.id}
-                chatId={chat?.id ?? ''}
-                sender={item.from === me ? 'You' : (chat?.names[item.from] ?? 'EfuChat user')}
-                msg={item}
-                mine={item.from === me}
-                read={readByAll(item)}
-                name={showName ? (chat?.names[item.from] ?? 'EfuChat user') : undefined}
-                me={me}
-                onLongPress={() => !item.deleted && setSelected(item)}
-                onReply={() => startReply(item)}
-                onReact={(e) => chat && react(chat.id, item.id, me, item.reactions?.[me] === e ? null : e).catch(() => {})}
-              />
-            );
-          })}
-        {typing.length ? <TypingDots /> : null}
+        {typing.length ? (
+          <View style={{ transform: [{ scaleY: -1 }] }}>
+            <TypingDots />
+          </View>
+        ) : null}
+        {msgs.map((item, index) => {
+          const prev = msgs[index + 1];
+          const showName = isGroup && item.from !== me && prev?.from !== item.from;
+          return (
+            <View key={item.id} style={{ transform: [{ scaleY: -1 }] }}>
+              {item.type === 'call' && item.call && !item.deleted ? (
+                <CallLine msg={item} mine={item.from === me} onCallBack={() => call(item.call!.kind)} onLongPress={() => setSelected(item)} />
+              ) : (
+                <Bubble
+                  chatId={chat?.id ?? ''}
+                  sender={item.from === me ? 'You' : (chat?.names[item.from] ?? 'EfuChat user')}
+                  msg={item}
+                  mine={item.from === me}
+                  read={readByAll(item)}
+                  name={showName ? (chat?.names[item.from] ?? 'EfuChat user') : undefined}
+                  me={me}
+                  onLongPress={() => !item.deleted && setSelected(item)}
+                  onReply={() => startReply(item)}
+                  onReact={(e) => chat && react(chat.id, item.id, me, item.reactions?.[me] === e ? null : e).catch(() => {})}
+                />
+              )}
+            </View>
+          );
+        })}
       </ScrollView>
       </View>
 
