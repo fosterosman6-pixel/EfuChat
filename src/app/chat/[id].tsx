@@ -178,6 +178,7 @@ export default function Conversation() {
   const voice = useVoiceRecorder(() => stopVoice(true));
   const cancelled = useRef(false);
   const lockedRef = useRef(false);
+  const pressedAt = useRef(0);
   const [locked, setLocked] = useState(false);
   const [slide, setSlide] = useState(0);
   const [lift, setLift] = useState(0);
@@ -197,6 +198,7 @@ export default function Conversation() {
         onPanResponderGrant: () => {
           cancelled.current = false;
           lockedRef.current = false;
+          pressedAt.current = Date.now();
           voice.start().catch(() => {});
         },
         onPanResponderMove: (_, g) => {
@@ -212,7 +214,16 @@ export default function Conversation() {
           }
         },
         onPanResponderRelease: () => {
-          if (!lockedRef.current) stopVoice(true);
+          if (lockedRef.current) return;
+          // A quick tap starts hands-free recording (Send / Pause / Delete) instead of a tiny note.
+          if (Date.now() - pressedAt.current < 450 && !cancelled.current) {
+            lockedRef.current = true;
+            setLocked(true);
+            setSlide(0);
+            setLift(0);
+            return;
+          }
+          stopVoice(true);
         },
         onPanResponderTerminate: () => {
           if (!lockedRef.current) stopVoice(false);
@@ -306,7 +317,7 @@ export default function Conversation() {
           lost all its messages on Android whenever the keyboard or reply bar changed its size. */}
       <ScrollView
         ref={listRef as never}
-        style={{ flex: 1, zIndex: 1 }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ padding: 12, gap: 6, flexGrow: 1, justifyContent: 'flex-end' }}
         keyboardShouldPersistTaps="handled"
         onScroll={(e) => {
@@ -347,7 +358,7 @@ export default function Conversation() {
 
       {canSend ? (
         <>
-          {!replyTo && (
+          {!replyTo && !voice.recording && (
             <ScrollView horizontal keyboardShouldPersistTaps="handled" showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingHorizontal: 12, paddingBottom: 8 }}>
               {QUICK.map((q) => (
                 <Pressable key={q} accessibilityRole="button" accessibilityLabel={`Send ${q}`} onPress={() => send(q)} style={quick}>
@@ -412,7 +423,7 @@ export default function Conversation() {
             ) : (
               <View
                 accessibilityRole="button"
-                accessibilityLabel="Hold to record a voice note"
+                accessibilityLabel="Voice note: hold to talk, or tap to record hands-free"
                 {...micPan.panHandlers}
                 style={[micBtn, voice.recording && { width: 60, height: 60, borderRadius: 20, backgroundColor: colors.danger }]}
               >
@@ -435,14 +446,20 @@ export default function Conversation() {
           {voice.recording && !locked && (
             <View
               pointerEvents="none"
-              style={{ position: 'absolute', right: 14, bottom: (kbd ? 0 : insets.bottom) + 84 - Math.max(lift, -60), width: 52, paddingVertical: 12, borderRadius: 26, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, alignItems: 'center', gap: 4, elevation: 4 }}
+              style={{ position: 'absolute', right: 10, bottom: (kbd ? 0 : insets.bottom) + 90 - Math.max(lift, -60), alignItems: 'center', gap: 6, zIndex: 20, elevation: 20 }}
             >
-              <Icon name="lock" color={lift < -40 ? colors.lime600 : colors.navy} size={22} />
-              <T style={{ fontSize: 16, color: colors.muted }}>⌃</T>
+              <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, backgroundColor: colors.navy }}>
+                <T style={{ color: '#FFFFFF', fontSize: 12, fontFamily: fonts.bold }}>Slide up to lock</T>
+              </View>
+              <View style={{ width: 56, paddingVertical: 12, borderRadius: 28, backgroundColor: lift < -40 ? colors.lime : '#FFFFFF', borderWidth: 1, borderColor: colors.line, alignItems: 'center', gap: 2 }}>
+                <Icon name="lock" color={colors.navy} size={24} />
+                <T style={{ fontSize: 18, color: colors.navy, fontFamily: fonts.extrabold }}>⌃</T>
+              </View>
             </View>
           )}
           {voice.recording && locked && (
-            <View style={{ position: 'absolute', left: 8, right: 8, bottom: (kbd ? 0 : insets.bottom) + 8, padding: 14, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, gap: 12, elevation: 4 }}>
+            <View style={{ position: 'absolute', left: 8, right: 8, bottom: (kbd ? 0 : insets.bottom) + 8, padding: 14, borderRadius: 24, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, gap: 12, zIndex: 20, elevation: 20 }}>
+              <T style={{ fontSize: 13, color: colors.muted, textAlign: 'center' }}>{voice.paused ? 'Paused · tap the mic to carry on' : 'Recording · tap Send when you finish'}</T>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                 <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: voice.paused ? colors.muted : colors.danger }} />
                 <T style={{ fontFamily: fonts.extrabold, fontSize: 17, minWidth: 54 }}>{fmtVoice(voice.secs)}</T>
