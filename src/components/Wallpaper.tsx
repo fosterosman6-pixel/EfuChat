@@ -18,7 +18,7 @@ export function WallpaperFill({ name, id = 'wp' }: { name: WallpaperName; id?: s
   if (name === 'plain') return <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: BG.plain }} />;
   const pid = `${id}-${name}`;
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: BG[name] }}>
+    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, backgroundColor: BG[name] }}>
       <Svg width="100%" height="100%">
         <Defs>
           {name === 'chitenje' && (

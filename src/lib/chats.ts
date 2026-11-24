@@ -60,9 +60,27 @@ export function subscribeChat(chatId: string, cb: (chat: Chat | null) => void) {
   return onSnapshot(doc(db, 'chats', chatId), (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as Chat) : null));
 }
 
-export function subscribeMessages(chatId: string, cb: (msgs: Message[]) => void) {
-  const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'desc'), limit(200));
-  return onSnapshot(q, (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Message)));
+/** Newest 200 messages. If the sorted query fails, loads unsorted and sorts on the phone; reports errors. */
+export function subscribeMessages(chatId: string, cb: (msgs: Message[]) => void, onError?: (message: string) => void) {
+  const toMsgs = (docs: { id: string; data: () => unknown }[]) => docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as Message);
+  const time = (m: Message) => (m.createdAt as { toMillis?: () => number } | null | undefined)?.toMillis?.() ?? Number.MAX_SAFE_INTEGER;
+  let fallback: (() => void) | null = null;
+  const unsub = onSnapshot(
+    query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'desc'), limit(200)),
+    (snap) => cb(toMsgs(snap.docs)),
+    (e) => {
+      fallback?.();
+      fallback = onSnapshot(
+        query(collection(db, 'chats', chatId, 'messages'), limit(300)),
+        (snap) => cb(toMsgs(snap.docs).sort((a, b) => time(b) - time(a)).slice(0, 200)),
+        (e2) => onError?.(String(e2?.message ?? e?.message ?? 'Could not load messages')),
+      );
+    },
+  );
+  return () => {
+    unsub();
+    fallback?.();
+  };
 }
 
 /** Creates the direct chat if it does not exist yet, and returns its id. */

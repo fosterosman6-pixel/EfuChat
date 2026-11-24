@@ -83,7 +83,19 @@ export default function Conversation() {
   const me = user?.uid ?? '';
 
   useEffect(() => (id ? subscribeChat(id, setChat) : undefined), [id]);
-  useEffect(() => (id ? subscribeMessages(id, setMsgs) : undefined), [id]);
+  const [loadError, setLoadError] = useState('');
+  useEffect(() => {
+    if (!id) return;
+    setLoadError('');
+    return subscribeMessages(
+      id,
+      (m) => {
+        setMsgs(m);
+        setLoadError('');
+      },
+      setLoadError,
+    );
+  }, [id]);
 
   // The other person's profile, for online / last seen in direct chats.
   const otherUid = chat?.type === 'direct' ? chat.members.find((m) => m !== me) : undefined;
@@ -263,7 +275,13 @@ export default function Conversation() {
 
       <View style={{ flex: 1 }}>
       <WallpaperFill name={wallpaperFor(chat?.id ?? id)} />
+      {!!loadError && (
+        <View style={{ margin: 12, padding: 12, borderRadius: 14, backgroundColor: colors.dangerTint, zIndex: 2 }}>
+          <T style={{ color: colors.danger, fontFamily: fonts.bold }}>{`Messages could not load: ${loadError}`}</T>
+        </View>
+      )}
       <FlatList
+        style={{ flex: 1, zIndex: 1, elevation: 1 }}
         inverted
         data={msgs}
         keyExtractor={(m) => m.id}
