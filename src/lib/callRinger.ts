@@ -1,17 +1,17 @@
 /**
- * Full-screen incoming calls that keep ringing, even when EfuChat is closed (Android).
+ * Incoming calls that ring with EfuChat closed (Android), using expo-notifications only.
  *
  * The server sends a data-only push for a call. expo-notifications wakes this background task,
- * which shows a call-style notification with notifee: it covers the lock screen, loops the
- * ringtone and has Decline / Answer buttons. A second push ("call_end") or 45 seconds stops it.
+ * which shows a high-priority call notification on the "Incoming calls" channel (30-second ring)
+ * with Decline / Answer buttons. A second push ("call_end") removes it.
+ * Every step is guarded so a problem here can never stop the app from opening.
  */
-import notifee, { AndroidCategory, AndroidImportance, AndroidVisibility, EventType, type Event } from '@notifee/react-native';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 
 export const CALL_TASK = 'efuchat-incoming-call';
-export const CALL_CHANNEL = 'incoming_call_ring';
+const CATEGORY = 'incoming_call';
 export const callNotificationId = (callId: string) => `call-${callId}`;
 
 type CallPush = { kind: string; callId?: string; fromName?: string; callKind?: string };
@@ -29,7 +29,7 @@ function findPayload(x: unknown, depth = 0): CallPush | null {
   }
   if (typeof x !== 'object') return null;
   const o = x as Record<string, unknown>;
-  if (typeof o.kind === 'string' && (o.kind === 'call' || o.kind === 'call_end')) return o as unknown as CallPush;
+  if (o.kind === 'call' || o.kind === 'call_end') return o as unknown as CallPush;
   for (const v of Object.values(o)) {
     const hit = findPayload(v, depth + 1);
     if (hit) return hit;
@@ -37,96 +37,83 @@ function findPayload(x: unknown, depth = 0): CallPush | null {
   return null;
 }
 
-export async function ensureCallChannel() {
-  if (Platform.OS !== 'android') return;
-  await notifee.createChannel({
-    id: CALL_CHANNEL,
-    name: 'Incoming calls (ringing)',
-    importance: AndroidImportance.HIGH,
-    sound: 'efuchat_ring',
-    vibration: true,
-    vibrationPattern: [300, 800, 400, 800],
-    visibility: AndroidVisibility.PUBLIC,
-  });
+export async function setupCallCategory() {
+  try {
+    await Notifications.setNotificationCategoryAsync(CATEGORY, [
+      { identifier: 'decline', buttonTitle: 'Decline', options: { opensAppToForeground: false, isDestructive: true } },
+      { identifier: 'answer', buttonTitle: 'Answer', options: { opensAppToForeground: true } },
+    ]);
+  } catch {}
 }
 
 export async function showIncomingCall(p: CallPush) {
   if (!p.callId) return;
-  await ensureCallChannel();
-  const video = p.callKind === 'video';
-  await notifee.displayNotification({
-    id: callNotificationId(p.callId),
-    title: p.fromName || 'EfuChat',
-    body: video ? 'Incoming video call' : 'Incoming voice call',
-    data: { kind: 'call', callId: p.callId },
-    android: {
-      channelId: CALL_CHANNEL,
-      category: AndroidCategory.CALL,
-      importance: AndroidImportance.HIGH,
-      visibility: AndroidVisibility.PUBLIC,
-      loopSound: true,
-      ongoing: true,
-      autoCancel: false,
-      timeoutAfter: 45000,
-      smallIcon: 'notification_icon',
+  await setupCallCategory();
+  await Notifications.scheduleNotificationAsync({
+    identifier: callNotificationId(p.callId),
+    content: {
+      title: p.fromName || 'EfuChat',
+      body: p.callKind === 'video' ? '📹 Incoming video call' : '📞 Incoming voice call',
+      data: { kind: 'call', callId: p.callId },
+      categoryIdentifier: CATEGORY,
+      sound: 'efuchat_ring.wav',
+      priority: Notifications.AndroidNotificationPriority.MAX,
+      sticky: true,
+      autoDismiss: false,
       color: '#0A2253',
-      lightUpScreen: true,
-      fullScreenAction: { id: 'default', launchActivity: 'default' },
-      pressAction: { id: 'default', launchActivity: 'default' },
-      actions: [
-        { title: 'Decline', pressAction: { id: 'decline' } },
-        { title: video ? 'Answer video' : 'Answer', pressAction: { id: 'answer', launchActivity: 'default' } },
-      ],
     },
+    trigger: { channelId: 'calls' },
   });
 }
 
-export const stopRinging = (callId: string) => notifee.cancelNotification(callNotificationId(callId)).catch(() => {});
+export function stopRinging(callId: string) {
+  return Notifications.dismissNotificationAsync(callNotificationId(callId)).catch(() => {});
+}
 
 async function decline(callId: string) {
   await stopRinging(callId);
   try {
-    // Firebase keeps the sign-in on the phone, so this works with the app closed.
     const { setCallStatus } = await import('./calls');
     await setCallStatus(callId, 'declined');
   } catch {}
 }
 
-/** Decline pressed while the app is closed. */
-async function onBackground({ type, detail }: Event) {
-  const callId = detail.notification?.data?.callId as string | undefined;
-  if (!callId) return;
-  if (type === EventType.ACTION_PRESS && detail.pressAction?.id === 'decline') await decline(callId);
-  if (type === EventType.DISMISSED) await stopRinging(callId);
+/** Registered once at start-up (index.js). Never throws. */
+export function registerCallRinger() {
+  if (Platform.OS !== 'android') return;
+  try {
+    TaskManager.defineTask(CALL_TASK, async ({ data }) => {
+      try {
+        const d = data as Record<string, unknown> | undefined;
+        if (d && typeof d === 'object' && 'actionIdentifier' in d) {
+          const callId = findPayload(d)?.callId;
+          if (callId && d.actionIdentifier === 'decline') await decline(callId);
+          return;
+        }
+        const p = findPayload(data);
+        if (!p) return;
+        if (p.kind === 'call') await showIncomingCall(p);
+        else if (p.kind === 'call_end' && p.callId) await stopRinging(p.callId);
+      } catch {}
+    });
+    Notifications.registerTaskAsync(CALL_TASK).catch(() => {});
+  } catch {}
 }
 
-// Registered once, at start-up (index.js), before the app renders.
-if (Platform.OS === 'android') {
-  TaskManager.defineTask(CALL_TASK, async ({ data }) => {
-    const p = findPayload(data);
-    if (!p) return;
-    if (p.kind === 'call') await showIncomingCall(p);
-    else if (p.kind === 'call_end' && p.callId) await stopRinging(p.callId);
-  });
-  Notifications.registerTaskAsync(CALL_TASK).catch(() => {});
-  notifee.onBackgroundEvent(onBackground);
-}
-
-/** For the app: what to do when it was opened from the call notification. */
-export async function openedFromCall(): Promise<{ callId: string; answer: boolean } | null> {
-  const n = await notifee.getInitialNotification().catch(() => null);
-  const callId = n?.notification.data?.callId as string | undefined;
-  if (!n || !callId) return null;
-  return { callId, answer: n.pressAction.id === 'answer' };
-}
-
-/** While the app is open: Answer / Decline / tap on the call notification. */
-export function onCallNotificationPress(cb: (callId: string, action: 'answer' | 'open' | 'decline') => void) {
-  return notifee.onForegroundEvent(({ type, detail }) => {
-    const callId = detail.notification?.data?.callId as string | undefined;
-    if (!callId || (type !== EventType.ACTION_PRESS && type !== EventType.PRESS)) return;
-    const id = detail.pressAction?.id;
-    if (id === 'decline') decline(callId);
-    else cb(callId, id === 'answer' ? 'answer' : 'open');
-  });
+/** While the app runs: Answer / Decline / tap on a call notification. */
+export function onCallNotificationPress(cb: (callId: string, answer: boolean) => void) {
+  const handle = (r: Notifications.NotificationResponse | null) => {
+    if (!r) return;
+    const data = r.notification.request.content.data as { kind?: string; callId?: string } | undefined;
+    if (data?.kind !== 'call' || !data.callId) return;
+    if (r.actionIdentifier === 'decline') return void decline(data.callId);
+    cb(data.callId, r.actionIdentifier === 'answer');
+  };
+  try {
+    Notifications.getLastNotificationResponseAsync().then(handle, () => {});
+    const sub = Notifications.addNotificationResponseReceivedListener(handle);
+    return () => sub.remove();
+  } catch {
+    return () => {};
+  }
 }

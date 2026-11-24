@@ -19,7 +19,7 @@ import { usePush } from '../lib/push';
 import { SessionProvider, useSession } from '../lib/session';
 import { colors } from '../lib/theme';
 import { DialogHost } from '../components/Dialog';
-import { onCallNotificationPress, openedFromCall } from '../lib/callRinger';
+import { onCallNotificationPress } from '../lib/callRinger';
 
 export default function RootLayout() {
   const [loaded] = useFonts({ OpenSans_400Regular, OpenSans_600SemiBold, OpenSans_700Bold, OpenSans_800ExtraBold });
@@ -72,8 +72,9 @@ function IncomingCalls() {
       shown.current.add(callId);
       router.push({ pathname: '/call/[id]', params: { id: callId, ...(answer ? { answer: '1' } : {}) } });
     };
-    openedFromCall().then((o) => o && go(o.callId, o.answer));
-    return onCallNotificationPress((callId, action) => go(callId, action === 'answer'));
+    return onCallNotificationPress((callId, answer) => {
+      if (!shown.current.has(callId) || answer) go(callId, answer);
+    });
   }, [profile?.uid]);
 
   useEffect(() => {
