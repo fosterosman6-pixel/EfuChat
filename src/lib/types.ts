@@ -59,9 +59,11 @@ export type Message = {
   id: string;
   from: string;
   text: string;
-  type: 'text' | 'image' | 'voice' | 'document' | 'video' | 'audio' | 'location' | 'contact' | 'call';
+  type: 'text' | 'image' | 'voice' | 'document' | 'video' | 'audio' | 'location' | 'contact' | 'call' | 'money';
+  /** money sent through EfuChat (see payments/{paymentId}) */
+  money?: { paymentId: string; amount: number };
   /** shared location */
-  location?: { lat: number; lng: number };
+  location?: { lat: number; lng: number; label?: string };
   /** shared contact */
   contact?: { name: string; phone: string };
   /** call lines: written by the caller when a call finishes */

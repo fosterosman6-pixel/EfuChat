@@ -2,9 +2,10 @@ import { dialog } from '../../components/Dialog';
 import { doc, getDoc } from '@react-native-firebase/firestore';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Image, Pressable, ScrollView, Share, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Modal, Pressable, ScrollView, Share, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Avatar, Button, Icon, T } from '../../components/ui';
+import { Avatar, Button, Icon, ScaledTextInput, T } from '../../components/ui';
+import { placeOrder } from '../../lib/orders';
 import { openDirectChat } from '../../lib/chats';
 import { db } from '../../lib/firebase';
 import type { IconName } from '../../lib/icons';
@@ -25,6 +26,10 @@ export default function MarketItem() {
   const [page, setPage] = useState(0);
   const [saved, setSaved] = useState(false);
   const [seller, setSeller] = useState<UserProfile | null>(null);
+  const [buyOpen, setBuyOpen] = useState(false);
+  const [delivery, setDelivery] = useState<'pickup' | 'matola'>('pickup');
+  const [note, setNote] = useState('');
+  const [ordering, setOrdering] = useState(false);
   const me = profile?.uid ?? '';
   const mine = l?.sellerUid === me;
 
@@ -53,6 +58,21 @@ export default function MarketItem() {
       router.push({ pathname: '/chat/[id]', params: { id: chatId, draft: `Hi, is "${l.title}" (${mwk(l.priceMWK)}) still available?` } });
     } catch {
       dialog('Could not open chat', 'Try again.');
+    }
+  }
+
+  async function order() {
+    if (!profile || !l) return;
+    setOrdering(true);
+    try {
+      const id = await placeOrder(profile, l, { delivery, note });
+      setBuyOpen(false);
+      setNote('');
+      router.push({ pathname: '/order/[id]', params: { id } });
+    } catch {
+      dialog('Order not sent', 'This item may have just been sold or changed. Check your connection and try again.');
+    } finally {
+      setOrdering(false);
     }
   }
 
@@ -142,7 +162,7 @@ export default function MarketItem() {
           </Pressable>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', padding: 12, borderRadius: 14, backgroundColor: colors.surface100 }}>
             <Icon name="shield" color={colors.lime600} size={18} />
-            <T style={{ flex: 1, fontSize: 12, color: colors.muted }}>Meet in a public place and check the item before you pay. Wallet payments with buyer protection are coming soon.</T>
+            <T style={{ flex: 1, fontSize: 12, color: colors.muted }}>Meet in a public place and check the item before you pay. Pay the seller when you receive it.</T>
           </View>
         </View>
       </ScrollView>
@@ -150,9 +170,49 @@ export default function MarketItem() {
       {!mine && (
         <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', gap: 10, padding: 12, paddingBottom: insets.bottom + 12, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderColor: colors.surface100 }}>
           <Button title="Message" icon="chat" variant="outline" style={{ flex: 1 }} onPress={message} />
-          <Button title="Buy now" icon="bag" style={{ flex: 1.3 }} onPress={() => dialog('Coming soon', 'Buying with the EfuChat wallet comes in a later update. For now, message the seller to agree on price and pick-up.')} />
+          <Button title={l.status === 'live' ? 'Buy now' : 'Sold'} icon="bag" style={{ flex: 1.3 }} disabled={l.status !== 'live'} onPress={() => setBuyOpen(true)} />
         </View>
       )}
+      <Modal visible={buyOpen} transparent animationType="slide" onRequestClose={() => setBuyOpen(false)}>
+        <Pressable accessibilityLabel="Close" style={{ flex: 1, backgroundColor: 'rgba(10,34,83,0.55)' }} onPress={() => setBuyOpen(false)} />
+        <View style={{ backgroundColor: colors.surface100, borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 16, paddingBottom: insets.bottom + 18, gap: 14 }}>
+          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 999, backgroundColor: colors.line }} />
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 16, padding: 10 }}>
+            <View style={{ width: 60, height: 60, borderRadius: 12, overflow: 'hidden', backgroundColor: colors.lime100 }}>{l.cover ? <Image source={{ uri: l.cover }} style={{ width: 60, height: 60 }} /> : null}</View>
+            <View style={{ flex: 1 }}>
+              <T style={{ fontFamily: fonts.bold }} numberOfLines={2}>{l.title}</T>
+              <T style={{ fontFamily: fonts.extrabold, color: colors.navy, fontSize: 17 }}>{mwk(l.priceMWK)}</T>
+            </View>
+          </View>
+          <T style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.muted }}>HOW WILL YOU GET IT?</T>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {([['pickup', `Pick up in ${l.town}`], ...(l.matolaDelivery ? [['matola', 'Matola delivery']] : [])] as ['pickup' | 'matola', string][]).map(([k2, label]) => (
+              <Pressable key={k2} accessibilityRole="radio" accessibilityState={{ selected: delivery === k2 }} onPress={() => setDelivery(k2)} style={{ flex: 1, minHeight: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8, backgroundColor: delivery === k2 ? colors.navy : '#FFFFFF', borderWidth: delivery === k2 ? 0 : 1, borderColor: colors.line }}>
+                <T style={{ fontFamily: fonts.bold, color: delivery === k2 ? '#FFFFFF' : colors.ink, textAlign: 'center' }}>{label}</T>
+              </Pressable>
+            ))}
+          </View>
+          <T style={{ fontSize: 13, fontFamily: fonts.bold, color: colors.muted }}>PAYMENT</T>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFFFFF', borderRadius: 14, padding: 14 }}>
+            <Icon name="wallet" color={colors.lime600} size={22} />
+            <View style={{ flex: 1 }}>
+              <T style={{ fontFamily: fonts.bold }}>Pay on delivery</T>
+              <T style={{ fontSize: 12, color: colors.muted }}>Pay the seller in cash or mobile money when you get the item</T>
+            </View>
+          </View>
+          <ScaledTextInput
+            accessibilityLabel="Note to the seller"
+            value={note}
+            onChangeText={setNote}
+            placeholder="Note to the seller (optional), e.g. Can I come at 4pm?"
+            placeholderTextColor={colors.muted}
+            maxLength={300}
+            multiline
+            style={{ minHeight: 52, borderRadius: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: colors.line, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 }}
+          />
+          <Button title={ordering ? 'Sending order…' : `Order for ${mwk(l.priceMWK)}`} icon="bag" onPress={order} loading={ordering} />
+        </View>
+      </Modal>
     </View>
   );
 }

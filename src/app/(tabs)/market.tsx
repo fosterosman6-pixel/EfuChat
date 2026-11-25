@@ -94,7 +94,7 @@ export default function Market() {
             </Pressable>
           </View>
           <IconButton name="bookmark" label="Saved items" onPress={() => router.push('/saved')} />
-          <IconButton name="store" label="My shop" onPress={() => router.push('/my-listings')} />
+          <IconButton name="store" label="My shop" onPress={() => router.push('/my-shop')} />
         </View>
         <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, marginHorizontal: 4 }}>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.navy700, borderRadius: 16, paddingHorizontal: 14, minHeight: 52 }}>

@@ -111,7 +111,7 @@ export async function sendMessage(chat: Chat, from: string, text: string, opts: 
 export async function postMessage(
   chat: Chat,
   from: string,
-  fields: { text: string; type: Message['type']; media?: Message['media']; call?: Message['call']; location?: Message['location']; contact?: Message['contact'] },
+  fields: { text: string; type: Message['type']; media?: Message['media']; call?: Message['call']; location?: Message['location']; contact?: Message['contact']; money?: Message['money'] },
   preview: string,
   opts: { replyTo?: ReplyRef; forwarded?: boolean } = {},
 ) {

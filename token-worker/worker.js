@@ -243,6 +243,119 @@ async function notify(env, origin, uid, kind, id) {
   return { status: 400, body: { error: 'bad kind' } };
 }
 
+
+// ---------- Send money (PayChangu, Airtel Money / TNM Mpamba) ----------
+// No balance is held: the sender's mobile money is charged, and as soon as that succeeds the same
+// amount is paid out to the receiver's mobile money number. Needs the PAYCHANGU_SECRET secret.
+const PC = 'https://api.paychangu.com';
+const MAX_SEND = 500000; // MWK per transfer
+function toFs(v) {
+  if (v === null || v === undefined) return { nullValue: null };
+  if (typeof v === 'string') return { stringValue: v };
+  if (typeof v === 'boolean') return { booleanValue: v };
+  if (typeof v === 'number') return Number.isInteger(v) ? { integerValue: String(v) } : { doubleValue: v };
+  if (v instanceof Date) return { timestampValue: v.toISOString() };
+  if (Array.isArray(v)) return { arrayValue: { values: v.map(toFs) } };
+  return { mapValue: { fields: Object.fromEntries(Object.entries(v).map(([k, x]) => [k, toFs(x)])) } };
+}
+async function fsPatch(env, token, path, data) {
+  const mask = Object.keys(data).map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+  const r = await fetch(`https://firestore.googleapis.com/v1/projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents/${path}?${mask}`, {
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ fields: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, toFs(v)])) }),
+  });
+  if (!r.ok) throw new Error(`firestore write ${r.status} ${(await r.text()).slice(0, 200)}`);
+}
+async function pc(env, path, init = {}) {
+  const r = await fetch(`${PC}${path}`, {
+    ...init,
+    headers: { accept: 'application/json', 'content-type': 'application/json', authorization: `Bearer ${env.PAYCHANGU_SECRET}`, ...(init.headers || {}) },
+  });
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) console.error('paychangu', path, r.status, JSON.stringify(body).slice(0, 300));
+  return { ok: r.ok, status: r.status, body };
+}
+async function operatorId(env, kind) {
+  const cached = await env.KEYS.get(`pc-op-${kind}`);
+  if (cached) return cached;
+  const { body } = await pc(env, '/mobile-money');
+  const list = Array.isArray(body?.data) ? body.data : [];
+  const want = kind === 'airtel' ? /airtel/i : /tnm|mpamba/i;
+  const op = list.find((o) => want.test(o.name || ''));
+  if (!op) throw new Error(`operator ${kind} not found`);
+  await env.KEYS.put(`pc-op-${kind}`, op.ref_id, { expirationTtl: 86400 });
+  return op.ref_id;
+}
+const localNumber = (m) => {
+  const d = String(m || '').replace(/\D/g, '');
+  return d.startsWith('265') ? `0${d.slice(3)}` : d.startsWith('0') ? d : `0${d}`;
+};
+const opOf = (m) => (/^0(99|98|97|96|95)/.test(localNumber(m)) ? 'airtel' : /^0(88|89|87|86|85)/.test(localNumber(m)) ? 'tnm' : null);
+
+async function payStart(env, origin, uid, body) {
+  if (!env.PAYCHANGU_SECRET) return { status: 503, body: { error: 'not_ready', message: 'Send money is being set up.' } };
+  const amount = Math.round(Number(body.amount));
+  const to = String(body.to || '');
+  const from = localNumber(body.fromMobile);
+  if (!(amount >= 100 && amount <= MAX_SEND)) return { status: 400, body: { error: 'amount', message: `Send between MK 100 and MK ${MAX_SEND.toLocaleString()}.` } };
+  if (!to || to === uid) return { status: 400, body: { error: 'to' } };
+  const fromOp = opOf(from);
+  if (!fromOp || from.length !== 10) return { status: 400, body: { error: 'from', message: 'Use an Airtel Money (099…) or TNM Mpamba (088…) number.' } };
+  const token = await googleToken(env, origin);
+  const [sender, receiver, payout] = await Promise.all([fsGet(env, token, `users/${uid}`), fsGet(env, token, `users/${to}`), fsGet(env, token, `payouts/${to}`)]);
+  if (!sender || sender.status !== 'active' || !receiver) return { status: 403, body: { error: 'not allowed' } };
+  if (!payout?.mobile || !opOf(payout.mobile)) return { status: 409, body: { error: 'no_receiver_number', message: `${receiver.name || 'They'} hasn't added a mobile money number yet.` } };
+  const id = `EC-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
+  await fsPatch(env, token, `payments/${id}`, {
+    from: uid, to, fromName: sender.name || '', toName: receiver.name || '', amount, currency: 'MWK',
+    fromMobile: `${from.slice(0, 3)}••••${from.slice(-3)}`, fromOperator: fromOp, toOperator: opOf(payout.mobile),
+    note: String(body.note || '').slice(0, 120), chatId: String(body.chatId || '').slice(0, 200),
+    members: [uid, to], status: 'charging', createdAt: new Date(), updatedAt: new Date(),
+  });
+  const charge = await pc(env, '/mobile-money/payments/initialize', {
+    method: 'POST',
+    body: JSON.stringify({ mobile: from, mobile_money_operator_ref_id: await operatorId(env, fromOp), amount: String(amount), charge_id: id, first_name: (sender.name || '').split(' ')[0] || undefined }),
+  });
+  if (!charge.ok) {
+    await fsPatch(env, token, `payments/${id}`, { status: 'failed', updatedAt: new Date() });
+    return { status: 502, body: { error: 'charge_failed', message: charge.body?.message || 'Mobile money did not accept the request.', id } };
+  }
+  return { status: 200, body: { id, status: 'charging' } };
+}
+
+/** Checks the charge; once it succeeded, pays the receiver (once). Safe to call again and again. */
+async function payStatus(env, origin, uid, id) {
+  if (!env.PAYCHANGU_SECRET) return { status: 503, body: { error: 'not_ready' } };
+  const token = await googleToken(env, origin);
+  const p = await fsGet(env, token, `payments/${id}`);
+  if (!p || !(p.members || []).includes(uid)) return { status: 404, body: { error: 'not found' } };
+  if (['paid', 'failed', 'payout_failed'].includes(p.status)) return { status: 200, body: { id, status: p.status } };
+  if (p.status === 'charging') {
+    const v = await pc(env, `/mobile-money/payments/${encodeURIComponent(id)}/verify`);
+    const st = String(v.body?.data?.status || v.body?.status || '').toLowerCase();
+    if (['failed', 'cancelled', 'canceled', 'declined', 'expired'].includes(st)) {
+      await fsPatch(env, token, `payments/${id}`, { status: 'failed', updatedAt: new Date() });
+      return { status: 200, body: { id, status: 'failed' } };
+    }
+    if (st !== 'success' && st !== 'successful') return { status: 200, body: { id, status: 'charging' } };
+    // Charged: claim the payout step so it only ever runs once.
+    if (await env.KEYS.get(`pay-out-${id}`)) return { status: 200, body: { id, status: 'paying' } };
+    await env.KEYS.put(`pay-out-${id}`, '1', { expirationTtl: 30 * 86400 });
+    await fsPatch(env, token, `payments/${id}`, { status: 'paying', updatedAt: new Date() });
+    const payout = await fsGet(env, token, `payouts/${p.to}`);
+    const out = await pc(env, '/mobile-money/payouts/initialize', {
+      method: 'POST',
+      body: JSON.stringify({ mobile: localNumber(payout?.mobile), mobile_money_operator_ref_id: await operatorId(env, opOf(payout?.mobile)), amount: String(p.amount), charge_id: `${id}-OUT` }),
+    });
+    const done = out.ok ? 'paid' : 'payout_failed';
+    await fsPatch(env, token, `payments/${id}`, { status: done, updatedAt: new Date() });
+    if (done === 'paid') await sendPush(env, token, p.to, { notification: { title: `${p.fromName || 'Someone'} sent you MK ${Number(p.amount).toLocaleString()}`, body: 'It is on its way to your mobile money.' }, android: { priority: 'HIGH', notification: { channel_id: 'messages' } } }).catch(() => {});
+    return { status: 200, body: { id, status: done } };
+  }
+  return { status: 200, body: { id, status: p.status } };
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -252,7 +365,7 @@ export default {
     if (request.method === 'GET' && url.pathname === '/.well-known/openid-configuration')
       return json({ issuer: origin, jwks_uri: `${origin}/jwks`, id_token_signing_alg_values_supported: ['RS256'], response_types_supported: ['id_token'], subject_types_supported: ['public'] });
     if (request.method === 'GET' && url.pathname === '/jwks') return json(await publicJwks(env));
-    if (request.method !== 'POST' || !['/token', '/notify', '/signout-all'].includes(url.pathname)) return json({ error: 'not found' }, 404);
+    if (request.method !== 'POST' || !['/token', '/notify', '/signout-all', '/pay/start', '/pay/status'].includes(url.pathname)) return json({ error: 'not found' }, 404);
     let uid;
     try {
       const auth = request.headers.get('authorization') || '';
@@ -267,6 +380,16 @@ export default {
       } catch (e) {
         console.error('signout-all failed', String(e));
         return json({ error: 'not available' }, 502);
+      }
+    }
+    if (url.pathname === '/pay/start' || url.pathname === '/pay/status') {
+      const body = await request.json().catch(() => ({}));
+      try {
+        const r = url.pathname === '/pay/start' ? await payStart(env, origin, uid, body) : await payStatus(env, origin, uid, String(body.id || ''));
+        return json(r.body, r.status);
+      } catch (e) {
+        console.error('pay failed', String(e));
+        return json({ error: 'pay_error', message: 'Payment service is not available right now.' }, 502);
       }
     }
     if (url.pathname === '/notify') {

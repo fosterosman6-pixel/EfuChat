@@ -99,7 +99,11 @@ export default function Login() {
           <View style={{ flex: 1 }} />
           <Button title={t('sendCode')} variant="navy" onPress={sendCode} loading={busy} disabled={!local} />
           <T style={{ fontSize: 12, color: colors.muted, textAlign: 'center', paddingBottom: insets.bottom }}>
-            By continuing you agree to the Terms and Privacy Policy.
+            {'By continuing you agree to the '}
+            <T style={{ fontSize: 12, color: colors.navy, fontFamily: fonts.bold, textDecorationLine: 'underline' }} onPress={() => router.push('/terms')}>
+              Terms and Privacy Policy
+            </T>
+            .
           </T>
         </View>
       </ScrollView>

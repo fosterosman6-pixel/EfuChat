@@ -17,6 +17,8 @@ permissions:
 env:
   # Shown in Help → App version so we can tell builds apart.
   EXPO_PUBLIC_BUILD: ${{ github.sha }}
+  # Google Maps key for location previews (repo secret; restricted to EfuChat's package + signing key).
+  GOOGLE_MAPS_ANDROID_KEY: ${{ secrets.GOOGLE_MAPS_ANDROID_KEY }}
   PROJECT: project-72f5d6ed-81b6-4920-86b
   PACKAGE: com.efulogistix.efuchat
 

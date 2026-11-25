@@ -182,8 +182,12 @@ service cloud.firestore {
         allow create: if active() && me() in members()
           && (chat().get('adminsOnly', false) != true || me() in chat().get('admins', []))
           && incoming().from == me()
-          && incoming().type in ['text', 'image', 'voice', 'document', 'video', 'audio', 'location', 'contact', 'call']
+          && incoming().type in ['text', 'image', 'voice', 'document', 'video', 'audio', 'location', 'contact', 'call', 'money']
           && (!('text' in incoming()) || str(incoming().text, 4000))
+          // money cards only for a payment I really made and that went through
+          && (incoming().type != 'money' || (incoming().money is map && incoming().money.paymentId is string
+              && get(/databases/$(database)/documents/payments/$(incoming().money.paymentId)).data.from == me()
+              && get(/databases/$(database)/documents/payments/$(incoming().money.paymentId)).data.status in ['paying', 'paid']))
           // call lines are written by the caller, for a call that really exists
           && (incoming().type != 'call' || (incoming().call is map && incoming().call.callId is string
               && get(/databases/$(database)/documents/calls/$(incoming().call.callId)).data.from == me()));
@@ -301,15 +305,57 @@ service cloud.firestore {
         && incoming().status == 'live' && incoming().views == 0 && !('boostedUntil' in incoming());
       allow update: if isMe(resource.data.sellerUid) && resource.data.status in ['live', 'paused']
         && onlyChanges(['title', 'description', 'priceMWK', 'photos', 'condition', 'town', 'matolaDelivery', 'walletPayment', 'status'])
-        && incoming().status in ['live', 'paused'];
+        && incoming().status in ['live', 'paused', 'sold'];
       allow update: if isMod() && onlyChanges(['status']);
       allow delete: if isMe(resource.data.sellerUid) && resource.data.status != 'sold';
     }
 
-    // Orders and disputes are created and moved by Cloud Functions.
+    // Market orders. The buyer places one for a live listing; the seller accepts, declines or marks it
+    // delivered; the buyer can cancel until it is delivered. Payment is on delivery for now.
     match /orders/{id} {
       allow read: if signedIn() && (me() in resource.data.members || isStaff());
+      allow create: if active()
+        && incoming().keys().hasOnly(['listingId', 'title', 'cover', 'priceMWK', 'sellerUid', 'sellerName', 'buyerUid', 'buyerName',
+             'members', 'payment', 'delivery', 'note', 'status', 'createdAt', 'updatedAt'])
+        && incoming().buyerUid == me() && incoming().sellerUid != me()
+        && incoming().members == [me(), incoming().sellerUid]
+        && incoming().status == 'new' && incoming().payment == 'cod'
+        && incoming().delivery in ['pickup', 'matola']
+        && str(incoming().title, 80) && str(incoming().note, 300) && str(incoming().sellerName, 60) && str(incoming().buyerName, 60)
+        && (!('cover' in incoming()) || (incoming().cover is string && incoming().cover.size() < 60000))
+        && incoming().createdAt == request.time && incoming().updatedAt == request.time
+        // must match the listing as it is now
+        && get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.status == 'live'
+        && get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.sellerUid == incoming().sellerUid
+        && get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.priceMWK == incoming().priceMWK;
+      allow update: if signedIn() && onlyChanges(['status', 'updatedAt']) && incoming().updatedAt == request.time
+        && (
+          (isMe(resource.data.sellerUid) && (
+            (resource.data.status == 'new' && incoming().status in ['accepted', 'declined'])
+            || (resource.data.status == 'accepted' && incoming().status == 'delivered')))
+          || (isMe(resource.data.buyerUid) && resource.data.status in ['new', 'accepted'] && incoming().status == 'cancelled')
+        );
+      allow delete: if false;
+    }
+
+    // Money sent through EfuChat: written only by the server; the two people can read it.
+    match /payments/{id} {
+      allow read: if signedIn() && me() in resource.data.members;
       allow write: if false;
+    }
+    // My mobile money number for receiving money. Only I (and the server) can see it.
+    match /payouts/{uid} {
+      allow read: if isMe(uid);
+      allow write: if isMe(uid) && incoming().keys().hasOnly(['mobile', 'operator', 'updatedAt'])
+        && incoming().mobile is string && incoming().mobile.matches('^0[0-9]{9}$') && incoming().operator in ['airtel', 'tnm'];
+    }
+
+    // A seller's shop details (name, town, about, delivery).
+    match /shops/{uid} {
+      allow read: if signedIn();
+      allow write: if isMe(uid)
+        && incoming().keys().hasOnly(['name', 'town', 'about', 'delivery', 'updatedAt'])
+        && str(incoming().name, 60) && str(incoming().town, 60) && str(incoming().about, 300) && incoming().delivery is bool;
     }
     match /disputes/{id} {
       allow read: if signedIn() && (me() in resource.data.members || isStaff());

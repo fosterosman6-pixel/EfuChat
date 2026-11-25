@@ -64,8 +64,8 @@ export function MeScreen({ tab = false }: { tab?: boolean }) {
         <SectionLabel>YOU</SectionLabel>
         <Card>
           <Row left={<Tile name="person" bg={colors.lime100} fg={colors.navy} />} title="Edit profile" subtitle="Name, username, about and town" onPress={() => router.push('/edit-profile')} />
-          <Row left={<Tile name="wallet" bg={colors.lime100} fg={colors.navy} />} title="Wallet" subtitle="Coming soon" />
-          <Row left={<Tile name="store" bg={colors.lime100} fg={colors.navy} />} title="My shop and orders" subtitle="Coming soon" />
+          <Row left={<Tile name="wallet" bg={colors.lime100} fg={colors.navy} />} title="Wallet" subtitle="Send money, history, your mobile money number" right={chev} onPress={() => router.push('/wallet')} />
+          <Row left={<Tile name="store" bg={colors.lime100} fg={colors.navy} />} title="My shop and orders" subtitle="Your items, orders received and placed" right={chev} onPress={() => router.push('/my-shop')} />
           <Row left={<Tile name="phone" bg={colors.lime100} fg={colors.navy} />} title="Calls" subtitle="Voice calls and missed calls" onPress={() => router.push('/calls')} last />
         </Card>
 

@@ -18,7 +18,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AudioContent, ContactContent, FileContent, LocationContent, PhotoContent, VideoContent, VoiceContent } from '../../components/MediaBubble';
+import { AudioContent, ContactContent, FileContent, LocationContent, MoneyContent, PhotoContent, VideoContent, VoiceContent } from '../../components/MediaBubble';
 import { Avatar, Header, Icon, IconButton, T, ScaledTextInput } from '../../components/ui';
 import {
   chatTitle,
@@ -56,7 +56,7 @@ const QUICK = ['Zikomo', 'Ndafika!', 'Ok'];
 const EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 const TYPING_EVERY_MS = 4000;
 const PREVIEW = (m: Message) =>
-  m.type === 'document' ? `📄 ${m.media?.name ?? 'Document'}` : m.type === 'video' ? '🎥 Video' : m.type === 'audio' ? `🎵 ${m.media?.name ?? 'Audio'}` : m.type === 'location' ? '📍 Location' : m.type === 'contact' ? `👤 ${m.contact?.name ?? 'Contact'}` : m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.type === 'call' && m.call ? `📞 ${m.call.kind === 'video' ? 'Video' : 'Voice'} call` : m.text;
+  m.type === 'money' && m.money ? `💸 MK ${m.money.amount.toLocaleString('en-US')}` : m.type === 'document' ? `📄 ${m.media?.name ?? 'Document'}` : m.type === 'video' ? '🎥 Video' : m.type === 'audio' ? `🎵 ${m.media?.name ?? 'Audio'}` : m.type === 'location' ? `📍 ${m.location?.label ?? 'Location'}` : m.type === 'contact' ? `👤 ${m.contact?.name ?? 'Contact'}` : m.type === 'image' ? (m.text ? `📷 ${m.text}` : '📷 Photo') : m.type === 'voice' ? '🎤 Voice note' : m.type === 'call' && m.call ? `📞 ${m.call.kind === 'video' ? 'Video' : 'Voice'} call` : m.text;
 
 export default function Conversation() {
   const { id, draft } = useLocalSearchParams<{ id: string; draft?: string }>();
@@ -217,7 +217,10 @@ export default function Conversation() {
     setSending('Finding your location…');
     try {
       const p = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      await postMessage(chat, me, { type: 'location', text: '', location: { lat: p.coords.latitude, lng: p.coords.longitude } }, '📍 Location');
+      // Area name from the phone (e.g. "Firgrove, Somerset West"); no key needed.
+      const place = await Location.reverseGeocodeAsync({ latitude: p.coords.latitude, longitude: p.coords.longitude }).then((r) => r[0], () => undefined);
+      const label = [place?.district || place?.street || place?.name, place?.city || place?.subregion || place?.region].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ').slice(0, 120);
+      await postMessage(chat, me, { type: 'location', text: '', location: { lat: p.coords.latitude, lng: p.coords.longitude, ...(label ? { label } : {}) } }, label ? `📍 ${label}` : '📍 Location');
     } catch {
       dialog('Could not share location', 'Make sure location is on and try again.');
     } finally {
@@ -631,6 +634,7 @@ export default function Conversation() {
                 { icon: 'doc', label: 'Document', bg: colors.surface100, fg: colors.navy, run: () => pickDocument('file') },
                 { icon: 'music', label: 'Audio', bg: '#F5ECFA', fg: '#7B3FA0', run: () => pickDocument('audio') },
                 { icon: 'pin', label: 'Location', bg: '#EAF6EE', fg: '#1F7A45', run: shareLocation },
+                ...(!isGroup && otherUid ? [{ icon: 'wallet' as IconName, label: 'Money', bg: colors.lime100, fg: colors.lime600, run: () => router.push({ pathname: '/send-money', params: { uid: otherUid, name: title, chatId: id } }) }] : []),
                 { icon: 'person', label: 'Contact', bg: '#FFF4D6', fg: '#8A5A00', run: shareContact },
               ] as { icon: IconName; label: string; bg: string; fg: string; run: () => void }[]
             ).map((o) => (
@@ -777,9 +781,10 @@ function Bubble({
               {msg.media?.kind === 'file' && <FileContent chatId={chatId} media={msg.media} onLongPress={onLongPress} />}
               {msg.media?.kind === 'video' && <VideoContent chatId={chatId} media={msg.media} onLongPress={onLongPress} />}
               {msg.media?.kind === 'audio' && <AudioContent chatId={chatId} media={msg.media} onLongPress={onLongPress} />}
-              {msg.type === 'location' && msg.location && !msg.deleted && <LocationContent lat={msg.location.lat} lng={msg.location.lng} onLongPress={onLongPress} />}
+              {msg.type === 'money' && msg.money && !msg.deleted && <MoneyContent amount={msg.money.amount} note={msg.text} mine={mine} sender={sender} paymentId={msg.money.paymentId} />}
+              {msg.type === 'location' && msg.location && !msg.deleted && <LocationContent lat={msg.location.lat} lng={msg.location.lng} label={msg.location.label} mine={mine} onLongPress={onLongPress} />}
               {msg.type === 'contact' && msg.contact && !msg.deleted && <ContactContent name={msg.contact.name} phone={msg.contact.phone} onMessage={() => onContact?.(msg.contact!.phone, msg.contact!.name)} onLongPress={onLongPress} />}
-              {!!msg.text && <T style={{ lineHeight: 21 }}>{msg.text}</T>}
+              {!!msg.text && msg.type !== 'money' && <T style={{ lineHeight: 21 }}>{msg.text}</T>}
             </>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-end' }}>

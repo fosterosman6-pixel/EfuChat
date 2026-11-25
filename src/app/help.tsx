@@ -102,7 +102,7 @@ export default function Help() {
           left={<Tile name="doc" bg={colors.surface100} fg={colors.navy} />}
           title="Terms and privacy policy"
           right={<Icon name="chev" color={colors.muted} size={18} />}
-          onPress={() => dialog('Terms and privacy', 'EfuChat only uses your number and contacts to connect you with friends, and never sells your data. The full terms will be published before launch.')}
+          onPress={() => router.push('/terms')}
         />
         <Row left={<Tile name="help" bg={colors.surface100} fg={colors.navy} />} title="App version" subtitle={`${Constants.expoConfig?.version ?? ''} · build ${(process.env.EXPO_PUBLIC_BUILD ?? 'dev').slice(0, 7)} · EfuChat by EfuLogistix`} last />
       </Card>

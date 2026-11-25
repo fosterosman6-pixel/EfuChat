@@ -1,6 +1,7 @@
+import Constants from 'expo-constants';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ActivityIndicator, Image, Linking, Pressable, View } from 'react-native';
 import { dialog } from './Dialog';
 import { fileSize, mediaFile, usePhoto, voiceFile } from '../lib/media';
@@ -182,24 +183,46 @@ export function AudioContent({ chatId, media, onLongPress }: { chatId: string; m
   );
 }
 
-/** A shared location: tap to open it in Maps. */
-export function LocationContent({ lat, lng, onLongPress }: { lat: number; lng: number; onLongPress: () => void }) {
+/** A shared location: small map (when the build has a Maps key), the area name and Directions. */
+export function LocationContent({ lat, lng, label, mine, onLongPress }: { lat: number; lng: number; label?: string; mine?: boolean; onLongPress: () => void }) {
+  const open = () => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
+  const directions = () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
+  const mapsEnabled = !!(Constants.expoConfig?.extra as { mapsEnabled?: boolean } | undefined)?.mapsEnabled;
+  let map: ReactNode = null;
+  if (mapsEnabled) {
+    // Loaded only when the build has a key, so the map library is never touched without one.
+    const Maps = require('react-native-maps') as typeof import('react-native-maps');
+    const MapView = Maps.default;
+    map = (
+      <MapView
+        liteMode
+        provider={Maps.PROVIDER_GOOGLE}
+        pointerEvents="none"
+        style={{ width: '100%', height: 150 }}
+        initialRegion={{ latitude: lat, longitude: lng, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        rotateEnabled={false}
+        pitchEnabled={false}
+        toolbarEnabled={false}
+      >
+        <Maps.Marker coordinate={{ latitude: lat, longitude: lng }} />
+      </MapView>
+    );
+  }
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel="Shared location. Open in Maps"
-      onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`)}
-      onLongPress={onLongPress}
-      delayLongPress={300}
-      style={{ width: 240, borderRadius: 12, overflow: 'hidden', backgroundColor: '#EAF6EE' }}
-    >
-      <View style={{ height: 110, alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="pin" color="#1F7A45" size={40} />
+    <Pressable accessibilityRole="button" accessibilityLabel={`Shared location${label ? `: ${label}` : ''}. Open in Maps`} onPress={open} onLongPress={onLongPress} delayLongPress={300} style={{ width: 250, gap: 8 }}>
+      <View style={{ height: 150, borderRadius: 12, overflow: 'hidden', backgroundColor: '#EAF6EE', alignItems: 'center', justifyContent: 'center' }}>
+        {map ?? <Icon name="pin" color="#1F7A45" size={44} />}
       </View>
-      <View style={{ padding: 10, backgroundColor: 'rgba(255,255,255,0.7)' }}>
-        <T style={{ fontFamily: fonts.bold }}>📍 Location</T>
-        <T style={{ fontSize: 12, color: colors.muted }}>{`${lat.toFixed(5)}, ${lng.toFixed(5)} · tap to open in Maps`}</T>
+      <View style={{ paddingHorizontal: 2 }}>
+        <T style={{ fontFamily: fonts.bold }}>{mine ? '📍 My location' : '📍 Location'}</T>
+        <T style={{ fontSize: 13, color: colors.muted }} numberOfLines={2}>{label || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}</T>
       </View>
+      <Pressable accessibilityRole="button" accessibilityLabel="Directions" onPress={directions} style={{ minHeight: 44, borderRadius: 12, backgroundColor: colors.navy, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <Icon name="pin" color={colors.lime} size={16} />
+        <T style={{ color: '#FFFFFF', fontFamily: fonts.extrabold }}>Directions</T>
+      </Pressable>
     </Pressable>
   );
 }
@@ -224,6 +247,25 @@ export function ContactContent({ name, phone, onMessage, onLongPress }: { name: 
         <Pressable accessibilityRole="button" onPress={onMessage} style={{ flex: 1, minHeight: 40, borderRadius: 12, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
           <T style={{ fontFamily: fonts.bold, color: '#FFFFFF' }}>Message</T>
         </Pressable>
+      </View>
+    </Pressable>
+  );
+}
+
+/** Money sent in a chat: amount, note and whether it went through. */
+export function MoneyContent({ amount, note, mine, sender, paymentId }: { amount: number; note?: string; mine: boolean; sender: string; paymentId: string }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${mine ? 'You sent' : `${sender} sent`} ${amount} kwacha`} onPress={() => router.push('/wallet')} style={{ width: 230, gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.navy, alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="wallet" color={colors.lime} size={18} />
+        </View>
+        <T style={{ fontSize: 12, fontFamily: fonts.bold, color: colors.muted }}>{mine ? 'You sent' : `${sender.split(' ')[0]} sent you`}</T>
+      </View>
+      <T style={{ fontSize: 24, fontFamily: fonts.extrabold }}>{`MK ${Math.round(amount).toLocaleString('en-US')}`}</T>
+      {!!note && <T style={{ fontSize: 13, color: colors.muted }}>{note}</T>}
+      <View style={{ alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999, backgroundColor: colors.lime }}>
+        <T style={{ fontSize: 11, fontFamily: fonts.extrabold, color: colors.navy }}>{`✓ Paid · ${paymentId.slice(-6)}`}</T>
       </View>
     </Pressable>
   );

@@ -38,10 +38,10 @@ export function scaleText(style: StyleProp<TextStyle>, k: number, base = 15): Te
   return { ...s, fontSize, ...(s.lineHeight ? { lineHeight: Math.round(s.lineHeight * k) } : {}) };
 }
 
-export function T({ style, children, numberOfLines }: { style?: StyleProp<TextStyle>; children: ReactNode; numberOfLines?: number }) {
+export function T({ style, children, numberOfLines, onPress }: { style?: StyleProp<TextStyle>; children: ReactNode; numberOfLines?: number; onPress?: () => void }) {
   const k = useTextScale();
   return (
-    <Text maxFontSizeMultiplier={2} style={scaleText([{ fontFamily: fonts.regular, color: colors.ink, fontSize: 15 }, style], k)} numberOfLines={numberOfLines}>
+    <Text maxFontSizeMultiplier={2} onPress={onPress} suppressHighlighting style={scaleText([{ fontFamily: fonts.regular, color: colors.ink, fontSize: 15 }, style], k)} numberOfLines={numberOfLines}>
       {children}
     </Text>
   );

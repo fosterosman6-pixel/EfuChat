@@ -139,11 +139,47 @@ test('staff roles: moderators hide posts, finance reads money, nobody else does'
   await assertFails(setDoc(doc(as(A, { role: 'owner-wannabe' }), 'config', 'pricing'), {}));
 });
 
-test('listings: sellers cannot mark sold or boost themselves', async () => {
+test('money: payments are server-only, payout number private, money cards only for my paid payment', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'payments', 'pay1'), { from: A, to: B, members: [A, B], amount: 5000, status: 'paid' });
+    await setDoc(doc(ctx.firestore(), 'payments', 'pay2'), { from: A, to: B, members: [A, B], amount: 5000, status: 'failed' });
+  });
+  await assertSucceeds(getDoc(doc(as(B), 'payments', 'pay1')));
+  await assertFails(getDoc(doc(as(EVE), 'payments', 'pay1')));
+  await assertFails(setDoc(doc(as(A), 'payments', 'pay3'), { from: A, to: B, members: [A, B], amount: 1, status: 'paid' }));
+  await assertSucceeds(setDoc(doc(as(A), 'payouts', A), { mobile: '0991234567', operator: 'airtel', updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(as(A), 'payouts', A), { mobile: '12345', operator: 'airtel' }));
+  await assertFails(getDoc(doc(as(B), 'payouts', A)));
+  const m = (paymentId) => ({ from: A, type: 'money', text: 'Transport', money: { paymentId, amount: 5000 }, createdAt: serverTimestamp() });
+  await assertSucceeds(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), m('pay1')));
+  await assertFails(addDoc(collection(as(A), 'chats', 'alice_bob', 'messages'), m('pay2')));
+  await assertFails(addDoc(collection(as(B), 'chats', 'alice_bob', 'messages'), { ...m('pay1'), from: B }));
+});
+
+test('orders: buyer places, seller accepts and delivers, strangers cannot', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'listings', 'lo'), { sellerUid: B, status: 'live', priceMWK: 5000, title: 'Phone' });
+    for (const u of [A, B]) await setDoc(doc(ctx.firestore(), 'users', u), { name: u, status: 'active' });
+  });
+  const o = { listingId: 'lo', title: 'Phone', priceMWK: 5000, sellerUid: B, sellerName: 'Bob', buyerUid: A, buyerName: 'Alice', members: [A, B], payment: 'cod', delivery: 'pickup', note: 'At 4pm?', status: 'new', createdAt: serverTimestamp(), updatedAt: serverTimestamp() };
+  await assertSucceeds(setDoc(doc(as(A), 'orders', 'ord1'), o));
+  await assertFails(setDoc(doc(as(A), 'orders', 'o2'), { ...o, priceMWK: 1 }));
+  await assertFails(setDoc(doc(as(A), 'orders', 'o3'), { ...o, status: 'delivered' }));
+  await assertFails(setDoc(doc(as(B), 'orders', 'o4'), { ...o, buyerUid: B, members: [B, B] }));
+  await assertFails(getDoc(doc(as(EVE), 'orders', 'ord1')));
+  await assertFails(updateDoc(doc(as(A), 'orders', 'ord1'), { status: 'accepted', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(as(B), 'orders', 'ord1'), { status: 'accepted', updatedAt: serverTimestamp() }));
+  await assertSucceeds(updateDoc(doc(as(B), 'orders', 'ord1'), { status: 'delivered', updatedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(as(A), 'orders', 'ord1'), { status: 'cancelled', updatedAt: serverTimestamp() }));
+  await assertSucceeds(setDoc(doc(as(B), 'shops', B), { name: 'Bob Phones', town: 'Mangochi', about: '', delivery: true, updatedAt: serverTimestamp() }));
+  await assertFails(setDoc(doc(as(A), 'shops', B), { name: 'x', town: '', about: '', delivery: true }));
+});
+
+test('listings: sellers can mark sold but cannot boost themselves', async () => {
   const listing = { sellerUid: A, title: 'Sofa', description: 'Good', priceMWK: 1000, photos: ['x'], status: 'live', views: 0, category: 'home', condition: 'used', town: 'Mangochi', matolaDelivery: true, walletPayment: true };
   await assertSucceeds(setDoc(doc(as(A), 'listings', 'l1'), listing));
   await assertFails(setDoc(doc(as(A), 'listings', 'l2'), { ...listing, boostedUntil: Timestamp.now() }));
-  await assertFails(updateDoc(doc(as(A), 'listings', 'l1'), { status: 'sold' }));
+  await assertFails(updateDoc(doc(as(B), 'listings', 'l1'), { status: 'sold' }));
   await assertFails(deleteDoc(doc(as(B), 'listings', 'l1')));
 });
 
@@ -325,7 +361,7 @@ test('market: listing photos owner-only, listings created live by the seller', a
   const l = { sellerUid: A, seller: { name: 'Alice', verified: false }, title: 'Sofa', description: '', priceMWK: 220000, category: 'home', condition: 'used', town: 'Mangochi', photos: [ph.id], cover: 'data:image/jpeg;base64,x', matolaDelivery: false, walletPayment: false, status: 'live', views: 0, createdAt: serverTimestamp() };
   const ref = await addDoc(collection(as(A), 'listings'), l);
   await assertSucceeds(getDoc(doc(as(B), 'listings', ref.id)));
-  await assertFails(updateDoc(doc(as(A), 'listings', ref.id), { status: 'sold' }));
+  await assertFails(updateDoc(doc(as(B), 'listings', ref.id), { status: 'sold' }));
   await assertSucceeds(updateDoc(doc(as(A), 'listings', ref.id), { status: 'paused' }));
   await assertFails(updateDoc(doc(as(B), 'listings', ref.id), { priceMWK: 1 }));
   await assertSucceeds(deleteDoc(doc(as(A), 'listingMedia', ph.id)));
