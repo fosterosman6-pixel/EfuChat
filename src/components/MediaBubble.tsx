@@ -1,4 +1,3 @@
-import Constants from 'expo-constants';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { router } from 'expo-router';
 import { useState, type ReactNode } from 'react';
@@ -187,29 +186,7 @@ export function AudioContent({ chatId, media, onLongPress }: { chatId: string; m
 export function LocationContent({ lat, lng, label, mine, onLongPress }: { lat: number; lng: number; label?: string; mine?: boolean; onLongPress: () => void }) {
   const open = () => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`);
   const directions = () => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`);
-  const mapsEnabled = !!(Constants.expoConfig?.extra as { mapsEnabled?: boolean } | undefined)?.mapsEnabled;
-  let map: ReactNode = null;
-  if (mapsEnabled) {
-    // Loaded only when the build has a key, so the map library is never touched without one.
-    const Maps = require('react-native-maps') as typeof import('react-native-maps');
-    const MapView = Maps.default;
-    map = (
-      <MapView
-        liteMode
-        provider={Maps.PROVIDER_GOOGLE}
-        pointerEvents="none"
-        style={{ width: '100%', height: 150 }}
-        initialRegion={{ latitude: lat, longitude: lng, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        toolbarEnabled={false}
-      >
-        <Maps.Marker coordinate={{ latitude: lat, longitude: lng }} />
-      </MapView>
-    );
-  }
+  const map: ReactNode = null;
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={`Shared location${label ? `: ${label}` : ''}. Open in Maps`} onPress={open} onLongPress={onLongPress} delayLongPress={300} style={{ width: 250, gap: 8 }}>
       <View style={{ height: 150, borderRadius: 12, overflow: 'hidden', backgroundColor: '#EAF6EE', alignItems: 'center', justifyContent: 'center' }}>
