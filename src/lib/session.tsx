@@ -24,8 +24,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setProfile(user === null ? null : undefined);
       return;
     }
-    return onSnapshot(doc(db, 'users', user.uid), (snap) => {
-      setProfile(snap.exists() ? ({ uid: snap.id, ...snap.data() } as UserProfile) : null);
+    return onSnapshot(doc(db, 'users', user.uid), { includeMetadataChanges: true }, (snap) => {
+      if (snap.exists()) {
+        setProfile({ uid: snap.id, ...snap.data() } as UserProfile);
+        return;
+      }
+      // "No profile" from the phone's cache is not trusted (it is empty after a fresh sign-in);
+      // only the server can say this person has never set up a profile.
+      if (!snap.metadata.fromCache) setProfile(null);
     });
   }, [user]);
 

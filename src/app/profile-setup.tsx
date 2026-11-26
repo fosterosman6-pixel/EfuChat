@@ -1,5 +1,5 @@
 import { updateProfile } from '@react-native-firebase/auth';
-import { doc, serverTimestamp, writeBatch } from '@react-native-firebase/firestore';
+import { doc, getDocFromServer, serverTimestamp, setDoc, updateDoc, writeBatch } from '@react-native-firebase/firestore';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, View } from 'react-native';
@@ -27,6 +27,16 @@ export default function ProfileSetup() {
     }
     setBusy(true);
     try {
+      // Already set up (e.g. signed in again on this phone)? Keep the account, update name/about only.
+      const existing = await getDocFromServer(doc(db, 'users', user.uid)).catch(() => null);
+      if (existing?.exists()) {
+        await updateDoc(doc(db, 'users', user.uid), { name: name.trim(), about: about.trim() || 'Available' });
+        await setDoc(doc(db, 'users', user.uid, 'private', 'account'), { phone: user.phoneNumber, wantsWallet: wallet }, { merge: true });
+        await setDoc(doc(db, 'phoneIndex', user.phoneNumber), { uid: user.uid });
+        await updateProfile(user, { displayName: name.trim() });
+        router.replace('/home');
+        return;
+      }
       // Profile and phone lookup are written together so they never disagree.
       const batch = writeBatch(db);
       // Public profile. Server-owned fields start at their defaults; rules check them.
